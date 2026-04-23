@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+      font-size: 11pt;
+      color: #222;
+    }
+
+    /* ── Header ─────────────────────────────────────────── */
+    .doc-header {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      padding: 24px 40px 16px;
+      border-bottom: 1.5px solid #ccc;
+      margin-bottom: 24px;
+    }
+    .doc-header img { height: 56px; width: auto; flex-shrink: 0; }
+    .doc-header .header-text h1 { font-size: 20pt; font-weight: 700; color: #111; line-height: 1.2; }
+    .doc-header .header-text p  { font-size: 10pt; color: #555; margin-top: 4px; }
+
+    /* ── Body ────────────────────────────────────────────── */
+    .doc-body { padding: 0 40px; }
+
+    .section { margin-bottom: 24px; }
+    .section-title {
+      font-size: 13pt; font-weight: 700; color: #111;
+      margin-bottom: 10px; padding-bottom: 4px;
+      border-bottom: 1px solid #e0e0e0;
+    }
+
+    /* paragraph */
+    .paragraph { font-size: 11pt; line-height: 1.6; margin-bottom: 10px; }
+
+    /* bullet list */
+    .bullet-list { margin: 0 0 10px 20px; padding: 0; }
+    .bullet-list li { font-size: 11pt; line-height: 1.7; list-style-type: disc; }
+
+    /* table */
+    .data-table {
+      width: 100%; border-collapse: collapse;
+      margin-bottom: 10px; font-size: 8.5pt;
+      table-layout: fixed; word-break: break-word;
+    }
+    .data-table th {
+      background: #f0f0f0; font-weight: 700; text-align: left;
+      padding: 5px 7px; border: 1px solid #ccc;
+    }
+    .data-table td { padding: 4px 7px; border: 1px solid #ddd; vertical-align: top; }
+    .data-table tr:nth-child(even) td { background: #fafafa; }
+
+    /* ── Grid ────────────────────────────────────────────── */
+    .grid {
+      display: grid;
+      margin-bottom: 12px;
+    }
+    .grid-col { min-width: 0; }
+    /* nested content inside a grid cell resets bottom margin */
+    .grid-col .paragraph:last-child,
+    .grid-col .bullet-list:last-child,
+    .grid-col .data-table:last-child { margin-bottom: 0; }
+
+    /* ── Footer handled by Puppeteer displayHeaderFooter ── */
+  </style>
+</head>
+<body>
+
+  {{#if header}}
+  <header class="doc-header">
+    {{#if header.logoUrl}}<img src="{{header.logoUrl}}" alt="Logo" />{{/if}}
+    <div class="header-text">
+      {{#if header.title}}<h1>{{header.title}}</h1>{{/if}}
+      {{#if header.description}}<p>{{header.description}}</p>{{/if}}
+    </div>
+  </header>
+  {{/if}}
+
+  <main class="doc-body">
+    {{#each body}}
+    <section class="section">
+      <div class="section-title">{{this.title}}</div>
+      {{> contentList content=this.content}}
+    </section>
+    {{/each}}
+  </main>
+
+</body>
+</html>
+
+{{!-- ── Partial: renders a list of ContentItems ─────────────────────────── --}}
+{{#*inline "contentList"}}
+  {{#each content}}
+    {{#if (eq this.type "paragraph")}}
+      <p class="paragraph" style="text-align:{{#if this.align}}{{this.align}}{{else}}left{{/if}}">{{this.text}}</p>
+    {{/if}}
+
+    {{#if (eq this.type "bulletList")}}
+      <ul class="bullet-list">
+        {{#each this.items}}<li>{{this}}</li>{{/each}}
+      </ul>
+    {{/if}}
+
+    {{#if (eq this.type "table")}}
+      <table class="data-table">
+        <thead><tr>{{#each this.headers}}<th>{{this}}</th>{{/each}}</tr></thead>
+        <tbody>
+          {{#each this.rows}}<tr>{{#each this}}<td>{{this}}</td>{{/each}}</tr>{{/each}}
+        </tbody>
+      </table>
+    {{/if}}
+
+    {{#if (eq this.type "grid")}}
+      <div class="grid" style="grid-template-columns:{{gridColumns this.columns}};gap:{{#if this.gap}}{{this.gap}}{{else}}12px{{/if}};">
+        {{#each this.columns}}
+          <div class="grid-col" style="text-align:{{#if this.align}}{{this.align}}{{else}}left{{/if}};">
+            {{> contentList content=this.content}}
+          </div>
+        {{/each}}
+      </div>
+    {{/if}}
+  {{/each}}
+{{/inline}}

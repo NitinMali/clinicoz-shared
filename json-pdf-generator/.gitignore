@@ -1,0 +1,10 @@
+node_modules/
+dist/
+pdf/
+coverage/
+lambda.zip
+.env.lambda
+.env.lambda.*
+*.js.map
+.kiro/
+scripts/

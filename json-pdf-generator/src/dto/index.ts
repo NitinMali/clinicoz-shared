@@ -6,6 +6,7 @@ import {
   IsOptional,
   ValidateNested,
   IsIn,
+  IsObject,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 
@@ -169,6 +170,7 @@ export class PdfGenerateRequestDto {
   @IsString()
   template: string;
 
+  @IsObject()
   data: Record<string, any>;
 
   @IsOptional()

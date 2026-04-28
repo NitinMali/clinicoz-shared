@@ -31,7 +31,7 @@
     th.right, td.right { text-align: right; }
     th.center, td.center { text-align: center; }
 
-    /* summary rows (tax / grand total) */
+    /* summary rows */
     .summary-row td { border-left: none; border-right: none; border-top: none; border-bottom: 1px solid #eee; padding: 6px 10px; }
     .summary-row td.label { text-align: left; color: #555; font-size: 9pt; padding-left: 0; }
     .summary-row td.value { text-align: right; font-size: 9pt; }
@@ -54,7 +54,7 @@
   <div class="top-header">
     <div class="logo">clinic<span>o</span>z</div>
     <div class="invoice-title">
-      <h1>Invoice</h1>
+      <h1>Settlement Invoice</h1>
       <div class="invoice-number">{{invoiceNumber}}</div>
     </div>
   </div>
@@ -69,42 +69,44 @@
     <div class="invoice-date">{{invoiceDate}}</div>
   </div>
 
-  <!-- Invoice details table -->
-  <div class="section-label">Invoice details</div>
+  <!-- Settlement details table -->
+  <div class="section-label">Settlement details</div>
   <table>
     <thead>
       <tr>
-        <th style="width:{{#if hasTax}}32{{else}}36{{/if}}%">Name</th>
-        <th class="right" style="width:{{#if hasTax}}13{{else}}18{{/if}}%">Amount</th>
-        {{#if hasTax}}<th class="center" style="width:10%">Tax</th>{{/if}}
-        <th class="center" style="width:12%">Discount</th>
-        <th class="center" style="width:8%">Qty</th>
-        <th class="right" style="width:13%">Total</th>
+        <th style="width:60%">Transaction ID</th>
+        <th class="right" style="width:40%">Amount</th>
       </tr>
     </thead>
     <tbody>
       {{#each lineItems}}
       <tr>
-        <td>{{this.name}}</td>
+        <td>{{this.transactionId}}</td>
         <td class="right">{{this.amount}}</td>
-        {{#if ../hasTax}}<td class="center">{{this.tax}}</td>{{/if}}
-        <td class="center">{{this.discount}}</td>
-        <td class="center">{{this.quantity}}</td>
-        <td class="right">{{this.total}}</td>
       </tr>
       {{/each}}
     </tbody>
   </table>
 
-  <!-- Summary: subtotal, taxes, grand total -->
+  <!-- Summary: Total amount, Convenience fee, TCS, Grand total -->
   <div class="summary-wrap">
     <table class="summary-table">
-      {{#each summaryItems}}
-      <tr class="summary-row{{#if this.isGrandTotal}} grand-total{{/if}}">
-        <td class="label">{{this.label}}{{#if this.percentage}} ({{this.percentage}}%){{/if}}</td>
-        <td class="value" style="white-space: nowrap;">Rs {{this.amount}}</td>
+      <tr class="summary-row">
+        <td class="label">Total Amount</td>
+        <td class="value" style="white-space: nowrap;">Rs {{totalAmount}}</td>
       </tr>
-      {{/each}}
+      <tr class="summary-row">
+        <td class="label">Total Convenience Fee</td>
+        <td class="value" style="white-space: nowrap;">Rs {{convenienceFee}}</td>
+      </tr>
+      <tr class="summary-row">
+        <td class="label">Total TCS (1% mandatory tax deduction on base)</td>
+        <td class="value" style="white-space: nowrap;">Rs {{tcs}}</td>
+      </tr>
+      <tr class="summary-row grand-total">
+        <td class="label">Grand Total</td>
+        <td class="value" style="white-space: nowrap;">Rs {{grandTotal}}</td>
+      </tr>
     </table>
   </div>
 

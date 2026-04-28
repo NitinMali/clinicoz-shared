@@ -54,7 +54,7 @@
   <div class="top-header">
     <div class="logo">clinic<span>o</span>z</div>
     <div class="invoice-title">
-      <h1>Invoice</h1>
+      <h1>Appointment Invoice</h1>
       <div class="invoice-number">{{invoiceNumber}}</div>
     </div>
   </div>
@@ -69,34 +69,24 @@
     <div class="invoice-date">{{invoiceDate}}</div>
   </div>
 
-  <!-- Invoice details table -->
-  <div class="section-label">Invoice details</div>
+  <!-- Appointment details table -->
+  <div class="section-label">Appointment details</div>
   <table>
     <thead>
       <tr>
-        <th style="width:{{#if hasTax}}32{{else}}36{{/if}}%">Name</th>
-        <th class="right" style="width:{{#if hasTax}}13{{else}}18{{/if}}%">Amount</th>
-        {{#if hasTax}}<th class="center" style="width:10%">Tax</th>{{/if}}
-        <th class="center" style="width:12%">Discount</th>
-        <th class="center" style="width:8%">Qty</th>
-        <th class="right" style="width:13%">Total</th>
+        <th style="width:60%">Doctor Name</th>
+        <th class="right" style="width:40%">Consultation Fee (incl. taxes)</th>
       </tr>
     </thead>
     <tbody>
-      {{#each lineItems}}
       <tr>
-        <td>{{this.name}}</td>
-        <td class="right">{{this.amount}}</td>
-        {{#if ../hasTax}}<td class="center">{{this.tax}}</td>{{/if}}
-        <td class="center">{{this.discount}}</td>
-        <td class="center">{{this.quantity}}</td>
-        <td class="right">{{this.total}}</td>
+        <td>{{doctorName}}</td>
+        <td class="right">{{consultationFee}}</td>
       </tr>
-      {{/each}}
     </tbody>
   </table>
 
-  <!-- Summary: subtotal, taxes, grand total -->
+  <!-- Summary: consultation fee, convenience fee, grand total -->
   <div class="summary-wrap">
     <table class="summary-table">
       {{#each summaryItems}}

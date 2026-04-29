@@ -31,6 +31,10 @@
     th.right, td.right { text-align: right; }
     th.center, td.center { text-align: center; }
 
+    /* Indented child items under packages */
+    .child-item td { background-color: #fafafa; color: #555; }
+    .child-item td:first-child { padding-left: 24px; }
+
     /* summary rows (tax / grand total) */
     .summary-row td { border-left: none; border-right: none; border-top: none; border-bottom: 1px solid #eee; padding: 6px 10px; }
     .summary-row td.label { text-align: left; color: #555; font-size: 9pt; padding-left: 0; }
@@ -84,7 +88,7 @@
     </thead>
     <tbody>
       {{#each lineItems}}
-      <tr>
+      <tr class="{{#if this.isChild}}child-item{{/if}}">
         <td>{{this.name}}</td>
         <td class="right">{{this.amount}}</td>
         {{#if ../hasTax}}<td class="center">{{this.tax}}</td>{{/if}}

@@ -74,55 +74,83 @@
   <table>
     <thead>
       <tr>
-        <th style="width:60%">Transaction ID</th>
-        <th class="right" style="width:40%">Amount</th>
+        <th style="width:18%">Transaction ID</th>
+        <th style="width:12%">Type</th>
+        <th style="width:18%">ID</th>
+        <th class="right" style="width:10%">Patient Paid (Inc Fee)</th>
+        <th class="right" style="width:10%">PayU Fee ({{payuFeePercent}}%)</th>
+        <th class="right" style="width:10%">Convenience Fee ({{platformFeePercent}}%)</th>
+        <th class="right" style="width:10%">TCS (1%)</th>
+        <th class="right" style="width:12%">Final Payout</th>
       </tr>
     </thead>
     <tbody>
       {{#each lineItems}}
       <tr>
         <td>{{this.transactionId}}</td>
+        <td>{{this.type}}</td>
+        <td>{{this.id}}</td>
         <td class="right">{{this.amount}}</td>
+        <td class="right">{{this.payuFee}}</td>
+        <td class="right">{{this.convenienceFee}}</td>
+        <td class="right">{{this.tcs}}</td>
+        <td class="right">{{this.netAmount}}</td>
       </tr>
       {{/each}}
     </tbody>
   </table>
 
-  <!-- Summary: Total amount, Convenience fee, TCS, Grand total -->
+  <!-- Summary section -->
   <div class="summary-wrap">
     <table class="summary-table">
       <tr class="summary-row">
-        <td class="label">Total Amount</td>
-        <td class="value" style="white-space: nowrap;">Rs {{totalAmount}}</td>
+        <td class="label">Total Patient Inflow</td>
+        <td class="value" style="white-space: nowrap;">Rs {{totalPatientInflow}}</td>
       </tr>
       <tr class="summary-row">
-        <td class="label">Total Convenience Fee</td>
-        <td class="value" style="white-space: nowrap;">Rs {{convenienceFee}}</td>
+        <td class="label">Total PayU Deductions</td>
+        <td class="value" style="white-space: nowrap;">Rs {{totalPayuDeductions}}</td>
       </tr>
       <tr class="summary-row">
-        <td class="label">Total TCS (1% mandatory tax deduction on base)</td>
-        <td class="value" style="white-space: nowrap;">Rs {{tcs}}</td>
+        <td class="label">Total TCS Payable</td>
+        <td class="value" style="white-space: nowrap;">Rs {{totalTcsPayable}}</td>
+      </tr>
+      <tr class="summary-row">
+        <td class="label">Clinicoz Net Revenue (Inc. GST)</td>
+        <td class="value" style="white-space: nowrap;">Rs {{clinicozNetRevenue}}</td>
       </tr>
       <tr class="summary-row grand-total">
-        <td class="label">Grand Total</td>
-        <td class="value" style="white-space: nowrap;">Rs {{grandTotal}}</td>
+        <td class="label">Total Doctor Payout</td>
+        <td class="value" style="white-space: nowrap;">Rs {{totalDoctorPayout}}</td>
       </tr>
     </table>
   </div>
 
+  <!-- Platform Fee Breakdown -->
+  <div class="section-label" style="margin-top: 28px;">Platform Fee Breakdown</div>
+  <table>
+    <thead>
+      <tr>
+        <th style="width:33%">Total Platform Fee</th>
+        <th class="right" style="width:33%">Clinicoz Cut (82%)</th>
+        <th class="right" style="width:34%">GST (18%)</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Rs {{platformFeeBreakdown.totalPlatformFee}}</td>
+        <td class="right">Rs {{platformFeeBreakdown.clinicozCut}}</td>
+        <td class="right">Rs {{platformFeeBreakdown.platformGst}}</td>
+      </tr>
+    </tbody>
+  </table>
+
   <!-- Thank you message -->
   <div class="thank-you">{{#if thankYouMessage}}{{thankYouMessage}}{{else}}Thank you for your payment{{/if}}</div>
 
-  <!-- Footer company address -->
+  <!-- Footer -->
   <div class="footer-address">
-    <div class="company-name">{{company.name}}</div>
-    {{#if company.addressLine1}}<div>{{company.addressLine1}}</div>{{/if}}
-    {{#if company.addressLine2}}<div>{{company.addressLine2}}</div>{{/if}}
-    {{#if company.city}}<div>{{company.city}}</div>{{/if}}
-    {{#if company.country}}<div>{{company.country}}</div>{{/if}}
-    {{#if company.phone}}<div>Ph: {{company.phone}}</div>{{/if}}
-    {{#if company.email}}<div>Email: {{company.email}}</div>{{/if}}
-    {{#if company.gstin}}<div>GSTIN: {{company.gstin}}</div>{{/if}}
+    <div>care@clinicoz.com</div>
   </div>
 
 </div>

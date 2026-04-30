@@ -24,12 +24,16 @@
     .section-label { font-size: 9.5pt; color: #333; margin-bottom: 8px; }
 
     /* ── Line-items table ── */
-    table { width: 100%; border-collapse: collapse; margin-bottom: 0; }
+    table { width: 100%; border-collapse: collapse; margin-bottom: 0; table-layout: fixed; }
     thead tr { background: #f0f0f0; }
-    th { font-size: 8.5pt; font-weight: 600; color: #444; padding: 8px 10px; text-align: left; border: 1px solid #ddd; }
-    td { font-size: 9pt; color: #333; padding: 8px 10px; border: 1px solid #e8e8e8; vertical-align: middle; }
+    th { font-size: 8.5pt; font-weight: 600; color: #444; padding: 8px 6px; text-align: left; border: 1px solid #ddd; word-break: break-word; overflow-wrap: break-word; }
+    td { font-size: 9pt; color: #333; padding: 8px 6px; border: 1px solid #e8e8e8; vertical-align: middle; word-break: break-word; overflow-wrap: break-word; }
     th.right, td.right { text-align: right; }
     th.center, td.center { text-align: center; }
+
+    /* Settlement details table-specific tweaks to keep long IDs in-bounds */
+    .settlement-table td, .settlement-table th { font-size: 8pt; padding: 6px 5px; }
+    .settlement-table td.txn-id { font-size: 7.5pt; letter-spacing: -0.2px; }
 
     /* summary rows */
     .summary-row td { border-left: none; border-right: none; border-top: none; border-bottom: 1px solid #eee; padding: 6px 10px; }
@@ -71,23 +75,23 @@
 
   <!-- Settlement details table -->
   <div class="section-label">Settlement details</div>
-  <table>
+  <table class="settlement-table">
     <thead>
       <tr>
-        <th style="width:18%">Transaction ID</th>
-        <th style="width:12%">Type</th>
-        <th style="width:18%">ID</th>
-        <th class="right" style="width:10%">Patient Paid (Inc Fee)</th>
+        <th style="width:16%">Txn ID</th>
+        <th style="width:11%">Type</th>
+        <th style="width:13%">ID</th>
+        <th class="right" style="width:11%">Paid amt (Inc Fee)</th>
         <th class="right" style="width:10%">PayU Fee ({{payuFeePercent}}%)</th>
-        <th class="right" style="width:10%">Convenience Fee ({{platformFeePercent}}%)</th>
-        <th class="right" style="width:10%">TCS (1%)</th>
+        <th class="right" style="width:12%">Conven. Fee ({{platformFeePercent}}%)</th>
+        <th class="right" style="width:9%">TCS (1%)</th>
         <th class="right" style="width:12%">Final Payout</th>
       </tr>
     </thead>
     <tbody>
       {{#each lineItems}}
       <tr>
-        <td>{{this.transactionId}}</td>
+        <td class="txn-id">{{this.transactionId}}</td>
         <td>{{this.type}}</td>
         <td>{{this.id}}</td>
         <td class="right">{{this.amount}}</td>

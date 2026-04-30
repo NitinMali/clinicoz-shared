@@ -63,6 +63,12 @@
     </div>
   </div>
 
+  <!-- Entity name and location -->
+  <div style="margin-bottom: 22px;">
+    <div style="font-size: 11pt; font-weight: 600; color: #222;">{{header.entityName}}</div>
+    <div style="font-size: 9.5pt; color: #555;">{{header.state}}, {{header.city}}</div>
+  </div>
+
   <!-- Bill To box -->
   <div class="bill-to-box">
     <div>
@@ -78,25 +84,15 @@
   <table>
     <thead>
       <tr>
-        <th style="width:{{#if hasTax}}32{{else}}36{{/if}}%">Name</th>
-        <th class="right" style="width:{{#if hasTax}}13{{else}}18{{/if}}%">Amount</th>
-        {{#if hasTax}}<th class="center" style="width:10%">Tax</th>{{/if}}
-        <th class="center" style="width:12%">Discount</th>
-        <th class="center" style="width:8%">Qty</th>
-        <th class="right" style="width:13%">Total</th>
+        <th style="width:50%">Invoice ID</th>
+        <th class="right" style="width:50%">Amount</th>
       </tr>
     </thead>
     <tbody>
-      {{#each lineItems}}
-      <tr class="{{#if this.isChild}}child-item{{/if}}">
-        <td>{{this.name}}</td>
-        <td class="right">{{this.amount}}</td>
-        {{#if ../hasTax}}<td class="center">{{this.tax}}</td>{{/if}}
-        <td class="center">{{this.discount}}</td>
-        <td class="center">{{this.quantity}}</td>
-        <td class="right">{{this.total}}</td>
+      <tr>
+        <td>{{invoiceId}}</td>
+        <td class="right">Rs {{amount}}</td>
       </tr>
-      {{/each}}
     </tbody>
   </table>
 
@@ -115,16 +111,9 @@
   <!-- Thank you message -->
   <div class="thank-you">{{#if thankYouMessage}}{{thankYouMessage}}{{else}}Thank you for your payment{{/if}}</div>
 
-  <!-- Footer company address -->
+  <!-- Footer -->
   <div class="footer-address">
-    <div class="company-name">{{company.name}}</div>
-    {{#if company.addressLine1}}<div>{{company.addressLine1}}</div>{{/if}}
-    {{#if company.addressLine2}}<div>{{company.addressLine2}}</div>{{/if}}
-    {{#if company.city}}<div>{{company.city}}</div>{{/if}}
-    {{#if company.country}}<div>{{company.country}}</div>{{/if}}
-    {{#if company.phone}}<div>Ph: {{company.phone}}</div>{{/if}}
-    {{#if company.email}}<div>Email: {{company.email}}</div>{{/if}}
-    {{#if company.gstin}}<div>GSTIN: {{company.gstin}}</div>{{/if}}
+    <div>care@clinicoz.com</div>
   </div>
 
 </div>

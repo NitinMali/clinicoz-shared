@@ -59,6 +59,12 @@
     </div>
   </div>
 
+  <!-- Entity name and location -->
+  <div style="margin-bottom: 22px;">
+    <div style="font-size: 11pt; font-weight: 600; color: #222;">{{header.entityName}}</div>
+    <div style="font-size: 9.5pt; color: #555;">{{header.state}}, {{header.city}}</div>
+  </div>
+
   <!-- Bill To box -->
   <div class="bill-to-box">
     <div>
@@ -101,16 +107,9 @@
   <!-- Thank you message -->
   <div class="thank-you">{{#if thankYouMessage}}{{thankYouMessage}}{{else}}Thank you for your payment{{/if}}</div>
 
-  <!-- Footer company address -->
+  <!-- Footer -->
   <div class="footer-address">
-    <div class="company-name">{{company.name}}</div>
-    {{#if company.addressLine1}}<div>{{company.addressLine1}}</div>{{/if}}
-    {{#if company.addressLine2}}<div>{{company.addressLine2}}</div>{{/if}}
-    {{#if company.city}}<div>{{company.city}}</div>{{/if}}
-    {{#if company.country}}<div>{{company.country}}</div>{{/if}}
-    {{#if company.phone}}<div>Ph: {{company.phone}}</div>{{/if}}
-    {{#if company.email}}<div>Email: {{company.email}}</div>{{/if}}
-    {{#if company.gstin}}<div>GSTIN: {{company.gstin}}</div>{{/if}}
+    <div>care@clinicoz.com</div>
   </div>
 
 </div>

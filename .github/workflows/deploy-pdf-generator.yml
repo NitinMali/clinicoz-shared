@@ -1,0 +1,46 @@
+name: Deploy PDF Generator Lambda
+
+on:
+  push:
+    branches:
+      - main
+      - release-QA
+    paths:
+      - 'json-pdf-generator/**'
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: json-pdf-generator
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: json-pdf-generator/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ap-south-1
+
+      - name: Deploy to QA
+        if: github.ref == 'refs/heads/release-QA'
+        run: node scripts/deploy-lambda.js qa
+
+      - name: Deploy to Production
+        if: github.ref == 'refs/heads/main'
+        run: node scripts/deploy-lambda.js prod

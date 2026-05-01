@@ -1,0 +1,108 @@
+name: Deploy WhatsApp Microservice
+
+on:
+  push:
+    branches:
+      - main
+      - release-QA
+    paths:
+      - 'whatsapp-web/**'
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: whatsapp-web
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 18
+          cache: npm
+          cache-dependency-path: whatsapp-web/package-lock.json
+
+      - name: Install and build
+        run: |
+          npm ci
+          npm run build
+
+      - name: Set environment
+        id: env
+        run: |
+          if [ "${{ github.ref }}" = "refs/heads/release-QA" ]; then
+            echo "host=${{ secrets.EC2_HOST_QA }}" >> $GITHUB_OUTPUT
+          else
+            echo "host=${{ secrets.EC2_HOST_PROD }}" >> $GITHUB_OUTPUT
+          fi
+
+      # ── Ensure EC2 has dependencies ──
+      - name: Setup EC2 dependencies
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ steps.env.outputs.host }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            set -e
+
+            # Node.js 18+
+            if ! command -v node &> /dev/null || [ "$(node -v | cut -d. -f1 | tr -d v)" -lt 18 ]; then
+              echo "Installing Node.js 18..."
+              curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
+              sudo apt-get install -y nodejs
+            fi
+
+            # PM2
+            if ! command -v pm2 &> /dev/null; then
+              echo "Installing PM2..."
+              sudo npm install -g pm2
+            fi
+
+            # Chromium dependencies for puppeteer
+            if ! dpkg -s libgbm1 &> /dev/null 2>&1; then
+              echo "Installing Chromium dependencies..."
+              sudo apt-get update && sudo apt-get install -y \
+                libgbm1 libasound2 libatk1.0-0 libatk-bridge2.0-0 \
+                libcups2 libdbus-1-3 libdrm2 libgtk-3-0 libnspr4 \
+                libnss3 libx11-xcb1 libxcomposite1 libxdamage1 \
+                libxrandr2 xdg-utils libxss1 fonts-liberation
+            fi
+
+            # Redis CLI (for debugging)
+            if ! command -v redis-cli &> /dev/null; then
+              sudo apt-get update && sudo apt-get install -y redis-tools
+            fi
+
+            # Create app directory
+            mkdir -p ~/whatsapp-web
+
+            echo "EC2 ready: Node $(node -v) | PM2 $(pm2 -v)"
+
+      # ── SCP built files to EC2 ──
+      - name: Copy files to EC2
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ steps.env.outputs.host }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          source: "whatsapp-web/dist/,whatsapp-web/package.json,whatsapp-web/package-lock.json,whatsapp-web/ecosystem.config.js,whatsapp-web/nest-cli.json"
+          target: "~/whatsapp-web"
+          strip_components: 1
+
+      # ── Install prod deps and restart ──
+      - name: Restart service
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ steps.env.outputs.host }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            set -e
+            cd ~/whatsapp-web
+            npm ci --omit=dev
+            pm2 restart whatsapp-microservice || pm2 start ecosystem.config.js
+            pm2 save
+            echo "Deploy complete: $(date)"

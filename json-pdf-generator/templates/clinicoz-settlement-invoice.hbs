@@ -81,10 +81,10 @@
         <th style="width:16%">Txn ID</th>
         <th style="width:11%">Type</th>
         <th style="width:13%">ID</th>
-        <th class="right" style="width:11%">Paid amt (Inc Fee)</th>
-        <th class="right" style="width:10%">PayU Fee ({{payuFeePercent}}%)</th>
-        <th class="right" style="width:12%">Conven. Fee ({{platformFeePercent}}%)</th>
-        <th class="right" style="width:9%">TCS (1%)</th>
+        <th class="right" style="width:11%">Paid amt (Inc taxes)</th>
+        {{!-- <th class="right" style="width:10%">PayU Fee ({{payuFeePercent}}%)</th> --}}
+        <th class="right" style="width:12%">Conv. Fee ({{totalFeePercent}}%)</th>
+        <th class="right" style="width:9%">Gst on conv. fee(18%)</th>
         <th class="right" style="width:12%">Final Payout</th>
       </tr>
     </thead>
@@ -95,7 +95,7 @@
         <td>{{this.type}}</td>
         <td>{{this.id}}</td>
         <td class="right">{{this.amount}}</td>
-        <td class="right">{{this.payuFee}}</td>
+        {{!-- <td class="right">{{this.payuFee}}</td> --}}
         <td class="right">{{this.convenienceFee}}</td>
         <td class="right">{{this.tcs}}</td>
         <td class="right">{{this.netAmount}}</td>
@@ -112,26 +112,26 @@
         <td class="value" style="white-space: nowrap;">Rs {{totalPatientInflow}}</td>
       </tr>
       <tr class="summary-row">
-        <td class="label">Total PayU Deductions</td>
-        <td class="value" style="white-space: nowrap;">Rs {{totalPayuDeductions}}</td>
-      </tr>
-      <tr class="summary-row">
-        <td class="label">Total TCS Payable</td>
-        <td class="value" style="white-space: nowrap;">Rs {{totalTcsPayable}}</td>
-      </tr>
-      <tr class="summary-row">
-        <td class="label">Platform Net Revenue (Inc. GST)</td>
+        <td class="label">Total convenience fee</td>
         <td class="value" style="white-space: nowrap;">Rs {{clinicozNetRevenue}}</td>
       </tr>
+      <tr class="summary-row">
+        <td class="label">Total GST on convenience fee</td>
+        <td class="value" style="white-space: nowrap;">Rs {{totalTcsPayable}}</td>
+      </tr>
+      {{!-- <tr class="summary-row">
+        <td class="label">Platform Net Revenue (Inc. GST)</td>
+        <td class="value" style="white-space: nowrap;">Rs {{clinicozNetRevenue}}</td>
+      </tr> --}}
       <tr class="summary-row grand-total">
-        <td class="label">Total Doctor Payout</td>
+        <td class="label">Total Payout</td>
         <td class="value" style="white-space: nowrap;">Rs {{totalDoctorPayout}}</td>
       </tr>
     </table>
   </div>
 
   <!-- Platform Fee Breakdown -->
-  <div class="section-label" style="margin-top: 28px;">Platform Fee Breakdown</div>
+  {{!-- <div class="section-label" style="margin-top: 28px;">Platform Fee Breakdown</div>
   <table>
     <thead>
       <tr>
@@ -147,7 +147,7 @@
         <td class="right">Rs {{platformFeeBreakdown.platformGst}}</td>
       </tr>
     </tbody>
-  </table>
+  </table> --}}
 
   <!-- Thank you message -->
   <div class="thank-you">{{#if thankYouMessage}}{{thankYouMessage}}{{else}}Thank you for your payment{{/if}}</div>

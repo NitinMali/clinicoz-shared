@@ -121,7 +121,19 @@ export class PdfService {
 
       // Footer template
       const footerText = data?.footer?.text ?? '';
-      const footerTemplate = footerText
+      const footerImageUrl = data?.footer?.imageUrl ?? '';
+      // Parse margin values to compute negative offsets for edge-to-edge images
+      const parseMm = (v: string) => {
+        const m = v.trim().match(/^([\d.]+)\s*mm$/);
+        return m ? parseFloat(m[1]) : 0;
+      };
+      const mLeft = parseMm(marginLeft);
+      const mRight = parseMm(marginRight);
+      // Negative top margin compensates for Puppeteer header iframe's default body margin
+      const edgeImageStyle = `display:block;width:calc(100% + ${mLeft + mRight}mm);height:auto;margin:-5mm -${mRight}mm 0 -${mLeft}mm;padding:0;vertical-align:top;border:none;`;
+      const footerTemplate = footerImageUrl
+        ? `<img src="${footerImageUrl}" style="${edgeImageStyle}" />`
+        : footerText
         ? `<div style="width:100%;font-size:9pt;color:#777;text-align:center;
                        border-top:1px solid #ddd;padding-top:5px;
                        font-family:Helvetica,Arial,sans-serif;">
@@ -132,31 +144,45 @@ export class PdfService {
       // Header template — only used when showOnAllPages is true
       const showHeaderOnAll = data?.header?.showOnAllPages === true;
       let headerTemplate = '<span></span>';
+      let displayHeaderFooter = true;
 
       if (showHeaderOnAll && data?.header) {
         const h = data.header;
-        const logoPart = h.logoUrl
-          ? `<img src="${h.logoUrl}" style="height:40px;margin-right:12px;" />`
-          : '';
-        const titlePart = h.title
-          ? `<span style="font-size:14pt;font-weight:700;color:#111;">${h.title}</span>`
-          : '';
-        const descPart = h.description
-          ? `<span style="font-size:9pt;color:#555;margin-left:8px;">${h.description}</span>`
-          : '';
 
-        headerTemplate = `
-          <div style="width:100%;display:flex;align-items:center;padding:0 20px;
-                      border-bottom:1px solid #ddd;padding-bottom:6px;
-                      font-family:Helvetica,Arial,sans-serif;">
-            ${logoPart}${titlePart}${descPart}
-          </div>`;
+        // If headerImageUrl exists, use it as entire header (edge-to-edge)
+        if (h.imageUrl) {
+          headerTemplate = `<img src="${h.imageUrl}" style="${edgeImageStyle}" />`;
+        } else {
+          const logoPart = h.logoUrl
+            ? `<img src="${h.logoUrl}" style="height:40px;" />`
+            : '';
+          const titlePart = h.title
+            ? `<span style="font-size:14pt;font-weight:700;color:#111;">${h.title}</span>`
+            : '';
+          const descPart = h.description
+            ? `<span style="font-size:9pt;color:#555;">${h.description.replace(/\n/g, '<br/>')}</span>`
+            : '';
+
+          // Only build header template if there's actual content
+          if (logoPart || titlePart || descPart) {
+            headerTemplate = `
+              <table style="width:100%;border-collapse:collapse;border-bottom:1px solid #ddd;font-family:Helvetica,Arial,sans-serif;">
+                <tr>
+                  <td style="padding:8px 0 8px 20px;width:1%;white-space:nowrap;">${logoPart}</td>
+                  <td style="padding:8px 20px 8px 12px;width:99%;">${titlePart}${descPart ? '<br/>' + descPart : ''}</td>
+                </tr>
+              </table>`;
+          } else {
+            // No header content, disable header
+            displayHeaderFooter = false;
+          }
+        }
       }
 
       const pdfBuffer = await page.pdf({
         format: 'A4',
         printBackground: true,
-        displayHeaderFooter: true,
+        displayHeaderFooter,
         headerTemplate,
         footerTemplate,
         margin: {
@@ -282,35 +308,131 @@ export class PdfService {
     return `${timestamp}-${uuidv4()}.pdf`;
   }
 
-  private async resolveDataImages(data: Record<string, any>): Promise<Record<string, any>> {
-    if (!data?.header?.logoUrl) return data;
-
-    const logoUrl = data.header.logoUrl;
-    let dataUri: string | null = null;
-
+  // Parse image dimensions from buffer (PNG/JPEG) without external deps
+  private getImageDimensions(buf: Buffer): { width: number; height: number } | null {
     try {
-      const localPath = path.isAbsolute(logoUrl)
-        ? logoUrl
-        : path.join(process.cwd(), logoUrl);
-
-      if (fs.existsSync(localPath)) {
-        const buf = fs.readFileSync(localPath);
-        const ext = path.extname(localPath).slice(1).toLowerCase();
-        const mime = ext === 'svg' ? 'image/svg+xml' : `image/${ext === 'jpg' ? 'jpeg' : ext}`;
-        dataUri = `data:${mime};base64,${buf.toString('base64')}`;
-      } else if (logoUrl.startsWith('http://') || logoUrl.startsWith('https://')) {
-        dataUri = logoUrl;
+      // PNG: signature 89 50 4E 47 0D 0A 1A 0A, then IHDR with W/H at bytes 16-23
+      if (buf.length >= 24 && buf[0] === 0x89 && buf[1] === 0x50 && buf[2] === 0x4E && buf[3] === 0x47) {
+        const width = buf.readUInt32BE(16);
+        const height = buf.readUInt32BE(20);
+        return { width, height };
       }
-    } catch {
-      this.logger.warn(`Could not resolve logo: ${logoUrl} — skipping`);
+      // JPEG: starts with FF D8, scan for SOF markers (C0-CF, excl. C4, C8, CC)
+      if (buf.length >= 4 && buf[0] === 0xFF && buf[1] === 0xD8) {
+        let i = 2;
+        while (i < buf.length - 9) {
+          if (buf[i] !== 0xFF) { i++; continue; }
+          const marker = buf[i + 1];
+          // skip padding 0xFF bytes
+          if (marker === 0xFF) { i++; continue; }
+          // SOI/EOI have no length
+          if (marker === 0xD8 || marker === 0xD9) { i += 2; continue; }
+          // SOF markers
+          if ((marker >= 0xC0 && marker <= 0xCF) && marker !== 0xC4 && marker !== 0xC8 && marker !== 0xCC) {
+            const height = buf.readUInt16BE(i + 5);
+            const width = buf.readUInt16BE(i + 7);
+            return { width, height };
+          }
+          // skip segment
+          const segLen = buf.readUInt16BE(i + 2);
+          i += 2 + segLen;
+        }
+      }
+    } catch {}
+    return null;
+  }
+
+  private async resolveDataImages(data: Record<string, any>): Promise<Record<string, any>> {
+    const urlsToResolve: { url: string; keyPath: string[] }[] = [];
+
+    // Collect logoUrl
+    if (data?.header?.logoUrl) {
+      urlsToResolve.push({ url: data.header.logoUrl, keyPath: ['header', 'logoUrl'] });
     }
 
-    return {
-      ...data,
-      header: {
-        ...data.header,
-        logoUrl: dataUri ?? undefined,
-      },
-    };
+    // Collect headerImageUrl
+    if (data?.header?.imageUrl) {
+      urlsToResolve.push({ url: data.header.imageUrl, keyPath: ['header', 'imageUrl'] });
+    }
+
+    // Collect footerImageUrl
+    if (data?.footer?.imageUrl) {
+      urlsToResolve.push({ url: data.footer.imageUrl, keyPath: ['footer', 'imageUrl'] });
+    }
+
+    if (urlsToResolve.length === 0) return data;
+
+    const result = { ...data };
+
+    for (const { url, keyPath } of urlsToResolve) {
+      let dataUri: string | null = null;
+      let imageBuf: Buffer | null = null;
+
+      try {
+        const localPath = path.isAbsolute(url)
+          ? url
+          : path.join(process.cwd(), url);
+
+        if (fs.existsSync(localPath)) {
+          const buf = fs.readFileSync(localPath);
+          imageBuf = buf;
+          const ext = path.extname(localPath).slice(1).toLowerCase();
+          const mime = ext === 'svg' ? 'image/svg+xml' : `image/${ext === 'jpg' ? 'jpeg' : ext}`;
+          dataUri = `data:${mime};base64,${buf.toString('base64')}`;
+        } else if (url.startsWith('http://') || url.startsWith('https://')) {
+          // Fetch remote image and convert to data URI — Puppeteer header
+          // template cannot reliably load external network resources.
+          const res = await fetch(url);
+          if (res.ok) {
+            const arrayBuf = await res.arrayBuffer();
+            const buf = Buffer.from(arrayBuf);
+            imageBuf = buf;
+            const contentType = res.headers.get('content-type') || 'image/png';
+            dataUri = `data:${contentType};base64,${buf.toString('base64')}`;
+          } else {
+            this.logger.warn(`Image fetch failed (${res.status}): ${url}`);
+          }
+        }
+      } catch (err) {
+        this.logger.warn(`Could not resolve image: ${url} — ${err?.message || err}`);
+      }
+
+      // Set the data URI in the result
+      let current = result;
+      for (let i = 0; i < keyPath.length - 1; i++) {
+        current = current[keyPath[i]];
+      }
+      current[keyPath[keyPath.length - 1]] = dataUri ?? undefined;
+
+      // Extract image dimensions for header/footer images to dynamically size them
+      if (imageBuf && (keyPath.join('.') === 'header.imageUrl' || keyPath.join('.') === 'footer.imageUrl')) {
+        const dims = this.getImageDimensions(imageBuf);
+        if (dims) {
+          // A4 width = 210mm, minus left+right margins (default 15mm each) = 180mm content width
+          // headerHeight = contentWidth / aspectRatio
+          const layout = result.layout || {};
+          const parseMm = (v: string) => {
+            const m = String(v).trim().match(/^([\d.]+)\s*mm$/);
+            return m ? parseFloat(m[1]) : 0;
+          };
+          const mLeft = parseMm(layout.marginLeft || '15mm') || 15;
+          const mRight = parseMm(layout.marginRight || '15mm') || 15;
+          // Image spans full page width (210mm), not just content width, due to negative margins
+          const fullPageWidth = 210; // A4 width in mm
+          const computedHeight = (fullPageWidth * dims.height) / dims.width;
+          // Clamp to safe range
+          const clamped = Math.max(15, Math.min(120, computedHeight));
+
+          if (!result.layout) result.layout = {};
+          if (keyPath[0] === 'header') {
+            result.layout.headerHeight = `${clamped}mm`;
+          } else {
+            result.layout.footerHeight = `${clamped}mm`;
+          }
+        }
+      }
+    }
+
+    return result;
   }
 }

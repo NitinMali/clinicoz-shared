@@ -2,15 +2,15 @@
   "name": "json-to-pdf-generator",
   "version": "1.0.0",
   "description": "NestJS module that converts structured JSON into formatted PDF documents",
-  "main": "dist/index.js",
-  "types": "dist/index.d.ts",
+  "main": "dist/src/index.js",
+  "types": "dist/src/index.d.ts",
   "files": [
     "dist"
   ],
   "scripts": {
-    "start": "node dist/main.js",
-    "start:dev": "tsc --watch & node --watch dist/main.js",
-    "start:local": "tsc && node dist/main.js",
+    "start": "node dist/src/main.js",
+    "start:dev": "tsc --watch & node --watch dist/src/main.js",
+    "start:local": "tsc && node dist/src/main.js",
     "build": "tsc",
     "postbuild": "node -e \"const fs=require('fs');const p=require('path');function cpR(s,d){fs.mkdirSync(d,{recursive:true});fs.readdirSync(s).forEach(f=>{const sp=p.join(s,f),dp=p.join(d,f);fs.statSync(sp).isDirectory()?cpR(sp,dp):fs.copyFileSync(sp,dp)})};cpR('src/template','dist/template')\"",
     "test": "jest --run",

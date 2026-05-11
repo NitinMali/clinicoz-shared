@@ -3,6 +3,7 @@ dist/
 pdf/
 coverage/
 lambda.zip
+.env
 .env.lambda
 .env.lambda.*
 *.js.map

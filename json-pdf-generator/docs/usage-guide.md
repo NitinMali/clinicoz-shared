@@ -4,16 +4,9 @@ Complete reference for all features, options, and content types.
 
 ---
 
-## Two APIs
+## API: `POST /pdf/render`
 
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `POST /pdf/render` | New flexible API | Pass template name + data JSON + optional S3 output |
-| `POST /pdf/generate` | Legacy API | Pass a `PdfDocumentDto` directly, get binary PDF back |
-
----
-
-## New API: `POST /pdf/render`
+Single endpoint for all PDF generation.
 
 ### Minimal request (blob response)
 
@@ -58,7 +51,7 @@ Response:
 ```json
 {
   "filename": "2024-01-15T10-30-00-000Z-<uuid>.pdf",
-  "s3Url": "s3://my-pdf-bucket/reports/2024/2024-01-15T10-30-00-000Z-<uuid>.pdf"
+  "s3Url": "https://my-pdf-bucket.s3.ap-south-1.amazonaws.com/reports/2024/..."
 }
 ```
 
@@ -76,15 +69,11 @@ If `s3Bucket` is blank or `output` is omitted → blob is returned.
 
 ---
 
-## Legacy API: `POST /pdf/generate`
-
-Returns binary PDF with headers:
-- `Content-Type: application/pdf`
-- `Content-Disposition: attachment; filename="<name>.pdf"`
-
----
-
 ## Header
+
+Two modes: **logo + title** or **full-width image**.
+
+### Mode 1: Logo + Title + Description
 
 ```json
 "header": {
@@ -95,30 +84,35 @@ Returns binary PDF with headers:
 }
 ```
 
-| Field | Type | Default | Description |
-|-------|------|---------|-------------|
-| `logoUrl` | string | — | Local file path or `https://` URL |
-| `title` | string | — | Header title text |
-| `description` | string | — | Subtitle / description |
-| `showOnAllPages` | boolean | `false` | `true` = header on every page, `false` = first page only |
+### Mode 2: Full-width header image
 
-### Logo resolution order
-
-1. Relative local path → resolved from `process.cwd()` (e.g. `"src/img/logo.png"`)
-2. Absolute local path → used as-is
-3. Remote URL → `http://` or `https://` passed to Puppeteer
-4. Not found → warning logged, logo skipped
-
-### Header on all pages
-
-When `showOnAllPages: true`, the header is rendered via Puppeteer's native `headerTemplate` — it appears at the top of every page. When `false` (default), the header is part of the HTML body and only appears on page 1.
+When `imageUrl` is provided, it replaces the logo+title+description entirely. The image spans the full page width edge-to-edge.
 
 ```json
 "header": {
-  "title": "Acme Corp — Confidential",
-  "showOnAllPages": true
+  "imageUrl": "https://my-bucket.s3.amazonaws.com/letterhead.png"
 }
 ```
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `logoUrl` | string | — | Logo image (local path, URL, or data URI blob) |
+| `imageUrl` | string | — | Full-width header image (replaces logo+title when set) |
+| `title` | string | — | Header title text |
+| `description` | string | — | Subtitle / description |
+| `showOnAllPages` | boolean | `false` | `true` = header on every page (logo+title mode only) |
+
+### Image/Logo source formats
+
+All image fields (`logoUrl`, `imageUrl`, and `image` content type) support:
+
+| Format | Example | How it works |
+|--------|---------|--------------|
+| Local file path | `"src/img/logo.png"` | Read from disk, converted to base64 data URI |
+| Remote URL | `"https://bucket.s3.amazonaws.com/img.png"` | Fetched server-side, converted to data URI |
+| Data URI (blob) | `"data:image/png;base64,iVBORw0KGgo..."` | Used directly as-is |
+
+Remote images are fetched at generation time and embedded in the PDF — no network dependency during rendering.
 
 ---
 
@@ -130,17 +124,11 @@ When `showOnAllPages: true`, the header is rendered via Puppeteer's native `head
 }
 ```
 
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `text` | string | Yes | Footer text — appears at the bottom of every page |
-
-The footer always renders on every page via Puppeteer's `footerTemplate`.
+The footer renders at the bottom of every page.
 
 ---
 
 ## Layout (Spacing Customisation)
-
-Control the spacing between header, body, and footer using CSS values or percentages.
 
 ```json
 "layout": {
@@ -162,22 +150,7 @@ Control the spacing between header, body, and footer using CSS values or percent
 | `marginLeft` | string | `"15mm"` | Left page margin |
 | `marginRight` | string | `"15mm"` | Right page margin |
 
-Effective top margin = `headerHeight + bodyPaddingTop`
-Effective bottom margin = `footerHeight + bodyPaddingBottom`
-
-All values support `mm`, `px`, or `%`.
-
-### Examples
-
-Tight layout (more content per page):
-```json
-"layout": { "headerHeight": "12mm", "footerHeight": "10mm", "marginLeft": "10mm", "marginRight": "10mm" }
-```
-
-Spacious layout (more breathing room):
-```json
-"layout": { "headerHeight": "30mm", "footerHeight": "20mm", "bodyPaddingTop": "8mm", "bodyPaddingBottom": "8mm" }
-```
+> When `imageUrl` is used, `headerHeight` and left/right margins are automatically set to 0 so the image spans edge-to-edge.
 
 ---
 
@@ -189,62 +162,135 @@ Spacious layout (more breathing room):
 {
   "type": "paragraph",
   "text": "Your text here.",
-  "align": "justify"
+  "align": "justify",
+  "style": "color:#333; font-weight:bold"
 }
 ```
 
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
-| `text` | string | required | Paragraph text |
+| `text` | string | required | Paragraph text (supports `\n` for line breaks) |
 | `align` | `"left"` `"center"` `"right"` `"justify"` | `"left"` | Text alignment |
+| `style` | string | — | Inline CSS applied to the `<p>` element |
 
 ---
 
 ### `bulletList`
 
+Items can be plain strings or rich objects with `{ text, style }`.
+
 ```json
 {
   "type": "bulletList",
-  "items": ["First item", "Second item", "Third item"]
-}
-```
-
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `items` | string[] | Yes (min 1) | List of bullet items |
-
----
-
-### `table`
-
-```json
-{
-  "type": "table",
-  "headers": ["Name", "Role", "Department", "Location", "Start Date"],
-  "rows": [
-    ["Alice Johnson", "Engineer", "Platform", "London", "2021-03-01"],
-    ["Bob Martinez", "Designer", "Product", "Berlin", "2022-07-15"]
+  "style": "margin-left:30px",
+  "items": [
+    "Plain item",
+    { "text": "Bold item", "style": "font-weight:bold" },
+    { "text": "Red item", "style": "color:red" }
   ]
 }
 ```
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| `headers` | string[] | Yes | Column header labels |
-| `rows` | string[][] | Yes | Array of row arrays |
+| `items` | (string \| {text, style})[] | Yes (min 1) | List items |
+| `style` | string | No | Inline CSS on the `<ul>` element |
 
-Tables use `table-layout: fixed` with `font-size: 8.5pt` to fit wide columns on A4.
+---
+
+### `table`
+
+Headers and cells can be plain strings or rich objects with `{ text, style }`.
+
+```json
+{
+  "type": "table",
+  "style": "font-size:10pt",
+  "headers": [
+    "Name",
+    { "text": "Amount", "style": "text-align:right; color:#1565c0" }
+  ],
+  "rows": [
+    ["License", { "text": "$6,000", "style": "font-weight:bold; color:green" }],
+    ["Support", "$1,200"]
+  ]
+}
+```
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `headers` | (string \| {text, style})[] | Yes | Column headers |
+| `rows` | (string \| {text, style})[][] | Yes | Row data |
+| `style` | string | No | Inline CSS on the `<table>` element |
+
+---
+
+### `image`
+
+Display an image inline in the content — works in sections, grids, and anywhere content items are accepted.
+
+```json
+{
+  "type": "image",
+  "src": "https://example.com/chart.png",
+  "width": "100%",
+  "align": "center",
+  "style": "border:1px solid #ccc; border-radius:4px"
+}
+```
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `src` | string | required | Image source (local path, URL, or data URI) |
+| `width` | string | `"auto"` | CSS width (e.g. `"200px"`, `"50%"`, `"100%"`) |
+| `height` | string | `"auto"` | CSS height |
+| `align` | `"left"` `"center"` `"right"` | `"left"` | Horizontal alignment |
+| `style` | string | — | Inline CSS on the `<img>` element |
+
+#### Image examples
+
+**Full-width chart:**
+```json
+{ "type": "image", "src": "https://my-bucket.s3.amazonaws.com/chart.png", "width": "100%", "align": "center" }
+```
+
+**Small signature aligned right:**
+```json
+{ "type": "image", "src": "src/img/signature.png", "width": "120px", "align": "right" }
+```
+
+**Image in a grid column:**
+```json
+{
+  "type": "grid",
+  "columns": [
+    {
+      "width": "30%",
+      "content": [
+        { "type": "image", "src": "https://example.com/photo.png", "width": "100%" }
+      ]
+    },
+    {
+      "width": "70%",
+      "content": [
+        { "type": "paragraph", "text": "Description next to the image." }
+      ]
+    }
+  ]
+}
+```
 
 ---
 
 ### `grid`
 
-Multi-column layout. Each column can have its own width, alignment, and nested content.
+Multi-column layout. Each column can contain any content type including images.
 
 ```json
 {
   "type": "grid",
   "gap": "16px",
+  "style": "border:1px solid #e0e0e0; padding:12px",
   "columns": [
     {
       "width": "40%",
@@ -267,6 +313,7 @@ Multi-column layout. Each column can have its own width, alignment, and nested c
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
 | `gap` | string | `"12px"` | CSS gap between columns |
+| `style` | string | — | Inline CSS on the grid container |
 | `columns` | GridColumn[] | required | Array of column definitions |
 
 #### GridColumn
@@ -274,79 +321,94 @@ Multi-column layout. Each column can have its own width, alignment, and nested c
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
 | `width` | string | `"1fr"` | CSS width: `"40%"`, `"1fr"`, `"200px"` |
-| `align` | `"left"` `"center"` `"right"` | `"left"` | Text alignment for all content in column |
-| `content` | ContentItem[] | required | Nested content (paragraph, table, bulletList) |
+| `align` | `"left"` `"center"` `"right"` | `"left"` | Text alignment for column |
+| `content` | ContentItem[] | required | Nested content (paragraph, table, bulletList, image) |
 
-#### Grid examples
+---
 
-**2-column equal:**
+## Inline Styling
+
+Every content item supports an optional `style` field for inline CSS. This gives fine-grained control over appearance.
+
+### On paragraphs
+
+```json
+{ "type": "paragraph", "text": "Important!", "style": "font-weight:bold; color:red; font-size:14pt" }
+```
+
+### On sections
+
 ```json
 {
-  "type": "grid",
-  "columns": [
-    { "content": [{ "type": "paragraph", "text": "Left" }] },
-    { "content": [{ "type": "paragraph", "text": "Right" }] }
+  "title": "Highlighted Section",
+  "style": "background:#f8f9fa; padding:12px; border-radius:6px; border-left:4px solid #1565c0",
+  "content": [...]
+}
+```
+
+### On bullet list items
+
+```json
+{
+  "type": "bulletList",
+  "items": [
+    { "text": "Critical", "style": "font-weight:bold; color:#d32f2f" },
+    "Normal item",
+    { "text": "Info", "style": "color:#1565c0" }
   ]
 }
 ```
 
-**3-column centered stats:**
+### On table cells
+
 ```json
 {
-  "type": "grid",
-  "gap": "16px",
-  "columns": [
-    { "content": [{ "type": "paragraph", "text": "$48.6M", "align": "center" }] },
-    { "content": [{ "type": "paragraph", "text": "1,240", "align": "center" }] },
-    { "content": [{ "type": "paragraph", "text": "93.8%", "align": "center" }] }
+  "type": "table",
+  "headers": ["Item", { "text": "Total", "style": "text-align:right; background:#e3f2fd" }],
+  "rows": [
+    ["Widget", { "text": "$5,000", "style": "font-weight:bold; text-align:right; color:green" }]
   ]
 }
 ```
 
-**Invoice-style label/value (left + right aligned):**
+### On grids
+
+```json
+{ "type": "grid", "style": "border:1px solid #ddd; padding:16px; border-radius:8px", "columns": [...] }
+```
+
+---
+
+## Newlines (`\n`)
+
+Use `\n` in any text field to create line breaks. They are converted to `<br>` in the rendered HTML.
+
+### In paragraphs
+
+```json
+{ "type": "paragraph", "text": "Line one\nLine two\nLine three" }
+```
+
+### In bullet list items
+
 ```json
 {
-  "type": "grid",
-  "gap": "8px",
-  "columns": [
-    {
-      "width": "40%",
-      "content": [
-        { "type": "paragraph", "text": "Invoice #:", "align": "left" },
-        { "type": "paragraph", "text": "Due Date:", "align": "left" }
-      ]
-    },
-    {
-      "width": "60%",
-      "content": [
-        { "type": "paragraph", "text": "INV-2024-001", "align": "right" },
-        { "type": "paragraph", "text": "30 April 2024", "align": "right" }
-      ]
-    }
+  "type": "bulletList",
+  "items": [
+    "Single line",
+    { "text": "First line\nSecond line", "style": "color:#555" }
   ]
 }
 ```
 
-**Wide content + narrow sidebar:**
+### In table cells
+
 ```json
 {
-  "type": "grid",
-  "gap": "20px",
-  "columns": [
-    {
-      "width": "65%",
-      "content": [
-        { "type": "paragraph", "text": "Main content area." },
-        { "type": "table", "headers": ["Item", "Qty"], "rows": [["Widget", "5"]] }
-      ]
-    },
-    {
-      "width": "35%",
-      "content": [
-        { "type": "paragraph", "text": "Sidebar notes." },
-        { "type": "bulletList", "items": ["Note 1", "Note 2"] }
-      ]
-    }
+  "type": "table",
+  "headers": ["Name", "Address"],
+  "rows": [
+    ["Acme Corp", { "text": "123 Main St\nSuite 400\nNew York, NY", "style": "line-height:1.6" }]
   ]
 }
 ```
@@ -364,8 +426,6 @@ templates/
 └── receipt.hbs
 ```
 
-Templates are standard Handlebars. The `data` JSON from the request is passed directly as the template context.
-
 ### Template resolution order
 
 1. `src/template/<name>.hbs` — built-in templates
@@ -376,54 +436,22 @@ Templates are standard Handlebars. The `data` JSON from the request is passed di
 | Helper | Usage | Description |
 |--------|-------|-------------|
 | `eq` | `{{#if (eq type "paragraph")}}` | Equality check |
-| `gridColumns` | `{{gridColumns columns}}` | Builds CSS `grid-template-columns` from column widths |
+| `gridColumns` | `{{gridColumns columns}}` | Builds CSS `grid-template-columns` |
+| `nl2br` | `{{nl2br text}}` | Converts `\n` to `<br>` |
+| `cellText` | `{{cellText item}}` | Extracts text from string or `{text, style}` object |
+| `cellStyle` | `{{cellStyle item}}` | Extracts style from `{text, style}` object |
 
 ### Creating a custom template
 
 1. Create `templates/my-template.hbs`
 2. Use standard HTML + CSS + Handlebars syntax
-3. Reference it in requests as `"template": "my-template"`
-
-Example:
-```html
-<!DOCTYPE html>
-<html>
-<head>
-  <style>
-    body { font-family: Arial; padding: 40px; }
-    h1 { color: #333; }
-  </style>
-</head>
-<body>
-  <h1>{{title}}</h1>
-  <p>{{description}}</p>
-  {{#each items}}
-    <div>{{this.name}} — {{this.value}}</div>
-  {{/each}}
-</body>
-</html>
-```
-
-Request:
-```json
-{
-  "template": "my-template",
-  "data": {
-    "title": "Custom Report",
-    "description": "Generated dynamically",
-    "items": [
-      { "name": "Revenue", "value": "$1.2M" },
-      { "name": "Users", "value": "5,400" }
-    ]
-  }
-}
-```
+3. Reference it as `"template": "my-template"`
 
 ---
 
 ## S3 Output
 
-When `output.s3Bucket` is provided, the PDF is uploaded to S3 instead of returned as a blob.
+When `output.s3Bucket` is provided, the PDF is uploaded to S3.
 
 ```json
 "output": {
@@ -432,88 +460,90 @@ When `output.s3Bucket` is provided, the PDF is uploaded to S3 instead of returne
 }
 ```
 
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `s3Bucket` | string | No | Bucket name. If blank → blob returned |
-| `s3Folder` | string | No | Folder prefix (no trailing slash) |
+File is uploaded as: `<folder>/<timestamp>-<uuid>.pdf`
 
-File is uploaded as: `s3://<bucket>/<folder>/<timestamp>-<uuid>.pdf`
-
-The `@aws-sdk/client-s3` is dynamically imported — only loaded when S3 output is actually used.
+The Lambda function needs `s3:PutObject` permission on the target bucket.
 
 ---
 
-## Full Example — All Options
+## Full Example
 
 ```json
 {
   "template": "document",
   "data": {
     "header": {
-      "logoUrl": "src/img/logo.png",
-      "title": "Annual Report 2024",
-      "description": "Comprehensive overview of all business units",
-      "showOnAllPages": true
+      "imageUrl": "https://my-bucket.s3.amazonaws.com/letterhead.png"
     },
     "body": [
       {
-        "title": "Executive Summary",
+        "title": "Invoice",
+        "style": "border-left:4px solid #1565c0; padding-left:12px",
         "content": [
           {
             "type": "paragraph",
-            "text": "Revenue grew 21% year-over-year.",
-            "align": "justify"
+            "text": "Dear Customer,\nPlease find your invoice below.\nThank you for your business.",
+            "style": "color:#333; line-height:1.8"
           },
           {
-            "type": "bulletList",
-            "items": ["Revenue: $48.6M", "Customers: 1,240", "Retention: 93.8%"]
+            "type": "image",
+            "src": "https://my-bucket.s3.amazonaws.com/qr-code.png",
+            "width": "80px",
+            "align": "right",
+            "style": "margin-top:8px"
           },
           {
             "type": "grid",
-            "gap": "16px",
+            "gap": "8px",
             "columns": [
               {
-                "width": "50%",
-                "align": "left",
+                "width": "40%",
                 "content": [
-                  { "type": "paragraph", "text": "Left column content" }
+                  { "type": "paragraph", "text": "Invoice #:", "style": "color:#777" },
+                  { "type": "paragraph", "text": "Date:", "style": "color:#777" },
+                  { "type": "paragraph", "text": "Due:", "style": "color:#777" }
                 ]
               },
               {
-                "width": "50%",
+                "width": "60%",
                 "align": "right",
                 "content": [
-                  { "type": "paragraph", "text": "Right column content" }
+                  { "type": "paragraph", "text": "INV-2024-001", "align": "right" },
+                  { "type": "paragraph", "text": "1 May 2024", "align": "right" },
+                  { "type": "paragraph", "text": "31 May 2024", "align": "right", "style": "font-weight:bold; color:#d32f2f" }
                 ]
               }
             ]
           },
           {
             "type": "table",
-            "headers": ["Region", "Q1", "Q2", "Q3", "Q4", "Total"],
+            "style": "margin-top:12px",
+            "headers": ["Item", "Qty", { "text": "Total", "style": "text-align:right" }],
             "rows": [
-              ["North America", "820", "910", "1050", "1200", "3980"],
-              ["EMEA", "680", "750", "820", "900", "3150"]
+              ["Platform License", "5", { "text": "$6,000", "style": "text-align:right" }],
+              ["Support Package", "1", { "text": "$2,400", "style": "text-align:right" }],
+              [{ "text": "Grand Total", "style": "font-weight:bold" }, "", { "text": "$8,400", "style": "text-align:right; font-weight:bold; color:#1565c0; font-size:11pt" }]
+            ]
+          },
+          {
+            "type": "bulletList",
+            "style": "margin-top:12px",
+            "items": [
+              { "text": "Payment terms: Net 30", "style": "font-weight:bold" },
+              "Wire transfer to account ending 4821",
+              { "text": "Late payments subject to 1.5% monthly fee", "style": "color:#d32f2f; font-size:9pt" }
             ]
           }
         ]
       }
     ],
     "footer": {
-      "text": "© 2024 Acme Corp. Confidential."
-    },
-    "layout": {
-      "headerHeight": "25mm",
-      "footerHeight": "15mm",
-      "bodyPaddingTop": "5mm",
-      "bodyPaddingBottom": "5mm",
-      "marginLeft": "20mm",
-      "marginRight": "20mm"
+      "text": "© 2024 Acme Corp. | support@acme.com | +1-555-0100"
     }
   },
   "output": {
     "s3Bucket": "my-pdf-bucket",
-    "s3Folder": "reports/2024"
+    "s3Folder": "invoices/2024"
   }
 }
 ```
@@ -530,18 +560,14 @@ import { PdfService } from './src/pdf.service';
 
 const service = new PdfService();
 
-// New API
 const result = await service.generate({
-  template: 'invoice',
-  data: { invoiceNumber: 'INV-001', lineItems: [...] },
+  template: 'document',
+  data: {
+    header: { imageUrl: 'https://...' },
+    body: [{ title: 'Test', content: [{ type: 'paragraph', text: 'Hello\nWorld' }] }],
+  },
 });
 console.log(result.blob); // base64 PDF
-
-// Legacy API
-const legacy = await service.generatePdf({
-  body: [{ title: 'Test', content: [{ type: 'paragraph', text: 'Hello' }] }],
-});
-console.log(legacy.filePath); // saved to pdf/ directory
 ```
 
 ### NestJS — inject PdfService
@@ -570,16 +596,11 @@ export class MyService {
 # Blob response
 curl -X POST http://localhost:3000/pdf/render \
   -H "Content-Type: application/json" \
-  -d '{"template":"document","data":{...}}'
+  -d @examples/postman-mock-data.json
 
-# S3 upload
-curl -X POST http://localhost:3000/pdf/render \
+# Save PDF locally from blob response
+curl -s -X POST http://localhost:3000/pdf/render \
   -H "Content-Type: application/json" \
-  -d '{"template":"document","data":{...},"output":{"s3Bucket":"my-bucket"}}'
-
-# Legacy endpoint — binary PDF
-curl -X POST http://localhost:3000/pdf/generate \
-  -H "Content-Type: application/json" \
-  -d @examples/payload.json \
-  --output report.pdf
+  -d @examples/payload.json | \
+  node -e "let d='';process.stdin.on('data',c=>d+=c);process.stdin.on('end',()=>{const r=JSON.parse(d);require('fs').writeFileSync('output.pdf',Buffer.from(r.blob,'base64'))})"
 ```

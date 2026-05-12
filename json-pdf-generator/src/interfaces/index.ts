@@ -2,6 +2,8 @@ export interface PdfHeader {
   logoUrl?: string;
   title?: string;
   description?: string;
+  /** Full-width header image — when provided, replaces logo+title+description entirely */
+  imageUrl?: string;
   /** Show header on all pages (true) or first page only (false, default) */
   showOnAllPages?: boolean;
 }
@@ -10,17 +12,32 @@ export interface ParagraphItem {
   type: 'paragraph';
   text: string;
   align?: 'left' | 'center' | 'right' | 'justify';
+  /** Inline CSS applied to the paragraph element */
+  style?: string;
 }
+
+/** A bullet list item can be a plain string or a rich object with text + style */
+export type BulletListEntry = string | { text: string; style?: string };
+
+/** A table cell can be a plain string or a rich object with text + style */
+export type TableCell = string | { text: string; style?: string };
+
+/** A table header can be a plain string or a rich object with text + style */
+export type TableHeader = string | { text: string; style?: string };
 
 export interface TableItem {
   type: 'table';
-  headers: string[];
-  rows: string[][];
+  headers: TableHeader[];
+  rows: TableCell[][];
+  /** Inline CSS applied to the table element */
+  style?: string;
 }
 
 export interface BulletListItem {
   type: 'bulletList';
-  items: string[];
+  items: BulletListEntry[];
+  /** Inline CSS applied to the ul element */
+  style?: string;
 }
 
 export interface GridColumn {
@@ -29,7 +46,7 @@ export interface GridColumn {
   /** Text alignment for all content in this column */
   align?: 'left' | 'center' | 'right';
   /** Any mix of content items */
-  content: (ParagraphItem | TableItem | BulletListItem)[];
+  content: (ParagraphItem | TableItem | BulletListItem | ImageItem)[];
 }
 
 export interface GridItem {
@@ -38,13 +55,31 @@ export interface GridItem {
   columns: GridColumn[];
   /** Gap between columns, CSS value e.g. "16px". Default "12px". */
   gap?: string;
+  /** Inline CSS applied to the grid container */
+  style?: string;
 }
 
-export type ContentItem = ParagraphItem | TableItem | BulletListItem | GridItem;
+export interface ImageItem {
+  type: 'image';
+  /** Image source — local path, https:// URL, or data:image/... blob */
+  src: string;
+  /** Optional width, CSS value e.g. "200px", "50%", "100%". Default "auto" */
+  width?: string;
+  /** Optional height, CSS value. Default "auto" */
+  height?: string;
+  /** Alignment. Default "left" */
+  align?: 'left' | 'center' | 'right';
+  /** Inline CSS applied to the img element */
+  style?: string;
+}
+
+export type ContentItem = ParagraphItem | TableItem | BulletListItem | GridItem | ImageItem;
 
 export interface PdfSection {
   title: string;
   content: ContentItem[]; // min length 1
+  /** Inline CSS applied to the section wrapper */
+  style?: string;
 }
 
 export interface PdfFooter {

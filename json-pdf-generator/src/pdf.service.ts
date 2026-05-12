@@ -6,19 +6,38 @@ import * as Handlebars from 'handlebars';
 import puppeteer from 'puppeteer-core';
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const chromium = require('@sparticuz/chromium');
-import { PdfDocumentDto, PdfGenerateRequestDto } from './dto';
-import { GenerationResult, PdfGenerateResponse } from './interfaces';
+import { PdfGenerateRequestDto } from './dto';
+import { PdfGenerateResponse } from './interfaces';
 
 // Handlebars helpers
 Handlebars.registerHelper('eq', (a: unknown, b: unknown) => a === b);
 Handlebars.registerHelper('gridColumns', (columns: Array<{ width?: string }>) => {
   return columns.map(c => c.width ?? '1fr').join(' ');
 });
+// Extract text from a rich item (string or { text, style })
+Handlebars.registerHelper('cellText', (item: unknown) => {
+  if (typeof item === 'string') return new Handlebars.SafeString(item.replace(/\n/g, '<br>'));
+  if (item && typeof item === 'object' && 'text' in item) {
+    return new Handlebars.SafeString(((item as any).text || '').replace(/\n/g, '<br>'));
+  }
+  return '';
+});
+// Extract style from a rich item (string or { text, style })
+Handlebars.registerHelper('cellStyle', (item: unknown) => {
+  if (item && typeof item === 'object' && 'style' in item) return (item as any).style || '';
+  return '';
+});
+// Convert \n to <br> for multiline text
+Handlebars.registerHelper('nl2br', (text: unknown) => {
+  if (typeof text !== 'string') return text;
+  return new Handlebars.SafeString(
+    Handlebars.Utils.escapeExpression(text).replace(/\n/g, '<br>')
+  );
+});
 
 @Injectable()
 export class PdfService {
   private readonly logger = new Logger(PdfService.name);
-  private readonly outputDir = path.join(process.cwd(), 'pdf');
 
   // Template directories — searched in order
   private readonly templateDirs = [
@@ -61,24 +80,7 @@ export class PdfService {
     return { filename, blob: buffer.toString('base64') };
   }
 
-  // ─────────────────────────────────────────────────────────────────────────
-  // Legacy API (backward compatible) — uses "document" template
-  // ─────────────────────────────────────────────────────────────────────────
-  async generatePdf(doc: PdfDocumentDto): Promise<GenerationResult> {
-    const templateSrc = this.loadTemplate('document');
-    const template = Handlebars.compile(templateSrc);
 
-    const docWithLogo = await this.resolveDataImages(doc as any);
-    const html = template(docWithLogo);
-    const filename = this.buildFilename();
-    const buffer = await this.renderHtmlToPdf(html, doc as any);
-
-    fs.mkdirSync(this.outputDir, { recursive: true });
-    const filePath = path.join(this.outputDir, filename);
-    fs.writeFileSync(filePath, buffer);
-
-    return { buffer, filename, filePath };
-  }
 
   // ─────────────────────────────────────────────────────────────────────────
   // Template resolution
@@ -107,15 +109,18 @@ export class PdfService {
 
       // Layout config with defaults
       const layout = data?.layout ?? {};
-      const headerHeight = layout.headerHeight ?? '20mm';
       const footerHeight = layout.footerHeight ?? '18mm';
       const bodyPaddingTop = layout.bodyPaddingTop ?? '0mm';
       const bodyPaddingBottom = layout.bodyPaddingBottom ?? '0mm';
       const marginLeft = layout.marginLeft ?? '15mm';
       const marginRight = layout.marginRight ?? '15mm';
 
+      // If header has imageUrl, use 0 top margin so the image starts at the page top
+      // The image is part of the HTML body content and handles its own spacing
+      const hasHeaderImage = !!data?.header?.imageUrl;
+      const headerHeight = hasHeaderImage ? '0mm' : (layout.headerHeight ?? '20mm');
+
       // Compute effective top/bottom margins
-      // top = headerHeight + bodyPaddingTop, bottom = footerHeight + bodyPaddingBottom
       const topMargin = this.addCssValues(headerHeight, bodyPaddingTop);
       const bottomMargin = this.addCssValues(footerHeight, bodyPaddingBottom);
 
@@ -129,8 +134,8 @@ export class PdfService {
            </div>`
         : '<span></span>';
 
-      // Header template — only used when showOnAllPages is true
-      const showHeaderOnAll = data?.header?.showOnAllPages === true;
+      // Header template — only used when showOnAllPages is true and no full-width image
+      const showHeaderOnAll = data?.header?.showOnAllPages === true && !hasHeaderImage;
       let headerTemplate = '<span></span>';
 
       if (showHeaderOnAll && data?.header) {
@@ -153,21 +158,27 @@ export class PdfService {
           </div>`;
       }
 
-      const pdfBuffer = await page.pdf({
-        format: 'A4',
-        printBackground: true,
-        displayHeaderFooter: true,
+      // Use CDP directly — Puppeteer's page.pdf() has a bug in v24+ with Chrome 148+
+      // where images are not embedded in the PDF output
+      const client = await page.createCDPSession();
+      const cdpResult = await client.send('Page.printToPDF', {
+        landscape: false,
+        displayHeaderFooter: !!(footerText || showHeaderOnAll),
         headerTemplate,
         footerTemplate,
-        margin: {
-          top: topMargin,
-          bottom: bottomMargin,
-          left: marginLeft,
-          right: marginRight,
-        },
+        printBackground: true,
+        paperWidth: 8.27,  // A4 in inches
+        paperHeight: 11.69,
+        marginTop: this.mmToInches(topMargin),
+        marginBottom: this.mmToInches(bottomMargin),
+        marginLeft: hasHeaderImage ? 0 : this.mmToInches(marginLeft),
+        marginRight: hasHeaderImage ? 0 : this.mmToInches(marginRight),
+        preferCSSPageSize: false,
+        generateTaggedPDF: false,
+        transferMode: 'ReturnAsBase64',
       });
 
-      return Buffer.from(pdfBuffer);
+      return Buffer.from(cdpResult.data, 'base64');
     } finally {
       await browser.close();
     }
@@ -192,6 +203,20 @@ export class PdfService {
     if (pa.unit !== pb.unit) return a; // can't add different units
 
     return `${pa.num + pb.num}${pa.unit}`;
+  }
+
+  // Convert CSS mm/px value to inches for CDP Page.printToPDF
+  private mmToInches(value: string): number {
+    const match = value.trim().match(/^([\d.]+)\s*(mm|px|in)?$/);
+    if (!match) return 0.78; // default ~20mm
+    const num = parseFloat(match[1]);
+    const unit = match[2] ?? 'mm';
+    switch (unit) {
+      case 'mm': return num / 25.4;
+      case 'px': return num / 96;
+      case 'in': return num;
+      default: return num / 25.4;
+    }
   }
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -283,34 +308,181 @@ export class PdfService {
   }
 
   private async resolveDataImages(data: Record<string, any>): Promise<Record<string, any>> {
-    if (!data?.header?.logoUrl) return data;
+    const result = { ...data };
+    if (data.header) result.header = { ...data.header };
+    if (data.footer) result.footer = { ...data.footer };
 
-    const logoUrl = data.header.logoUrl;
-    let dataUri: string | null = null;
-
-    try {
-      const localPath = path.isAbsolute(logoUrl)
-        ? logoUrl
-        : path.join(process.cwd(), logoUrl);
-
-      if (fs.existsSync(localPath)) {
-        const buf = fs.readFileSync(localPath);
-        const ext = path.extname(localPath).slice(1).toLowerCase();
-        const mime = ext === 'svg' ? 'image/svg+xml' : `image/${ext === 'jpg' ? 'jpeg' : ext}`;
-        dataUri = `data:${mime};base64,${buf.toString('base64')}`;
-      } else if (logoUrl.startsWith('http://') || logoUrl.startsWith('https://')) {
-        dataUri = logoUrl;
-      }
-    } catch {
-      this.logger.warn(`Could not resolve logo: ${logoUrl} — skipping`);
+    // Resolve header logoUrl
+    if (result.header?.logoUrl) {
+      result.header.logoUrl = await this.resolveImagePath(result.header.logoUrl) ?? undefined;
     }
 
-    return {
-      ...data,
-      header: {
-        ...data.header,
-        logoUrl: dataUri ?? undefined,
-      },
-    };
+    // Resolve header imageUrl (full-width)
+    if (result.header?.imageUrl) {
+      const resolved = await this.resolveImageToBuffer(result.header.imageUrl);
+      if (resolved) {
+        result.header.imageUrl = resolved.dataUri;
+        // Auto-calculate headerHeight based on image aspect ratio
+        // A4 = 210mm wide, image spans full width (0 left/right margin for imageUrl)
+        const dims = this.getImageDimensions(resolved.buffer);
+        if (dims) {
+          const pageWidth = 210; // A4 mm
+          const computedHeight = (pageWidth * dims.height) / dims.width;
+          const clamped = Math.max(15, Math.min(120, computedHeight));
+          if (!result.layout) result.layout = {};
+          result._headerImageHeight = clamped;
+        }
+      } else {
+        result.header.imageUrl = undefined;
+      }
+    }
+
+    // Resolve footer imageUrl if present
+    if (result.footer?.imageUrl) {
+      result.footer.imageUrl = await this.resolveImagePath(result.footer.imageUrl) ?? undefined;
+    }
+
+    // Resolve image items in body content
+    if (result.body && Array.isArray(result.body)) {
+      result.body = await this.resolveBodyImages(result.body);
+    }
+
+    return result;
+  }
+
+  /** Recursively resolve image src in body content items */
+  private async resolveBodyImages(body: any[]): Promise<any[]> {
+    const resolved = [];
+    for (const section of body) {
+      const s = { ...section };
+      if (s.content && Array.isArray(s.content)) {
+        s.content = await this.resolveContentImages(s.content);
+      }
+      resolved.push(s);
+    }
+    return resolved;
+  }
+
+  private async resolveContentImages(content: any[]): Promise<any[]> {
+    const resolved = [];
+    for (const item of content) {
+      if (item.type === 'image' && item.src) {
+        const dataUri = await this.resolveImagePath(item.src);
+        resolved.push({ ...item, src: dataUri ?? item.src });
+      } else if (item.type === 'grid' && item.columns) {
+        // Resolve images inside grid columns
+        const cols = [];
+        for (const col of item.columns) {
+          if (col.content && Array.isArray(col.content)) {
+            cols.push({ ...col, content: await this.resolveContentImages(col.content) });
+          } else {
+            cols.push(col);
+          }
+        }
+        resolved.push({ ...item, columns: cols });
+      } else {
+        resolved.push(item);
+      }
+    }
+    return resolved;
+  }
+
+  /** Resolve an image URL to a data URI string */
+  private async resolveImagePath(url: string): Promise<string | null> {
+    const result = await this.resolveImageToBuffer(url);
+    return result?.dataUri ?? null;
+  }
+
+  /** Resolve an image URL to both a data URI and raw buffer */
+  private async resolveImageToBuffer(url: string): Promise<{ dataUri: string; buffer: Buffer } | null> {
+    try {
+      if (url.startsWith('data:')) {
+        // Extract buffer from data URI
+        const match = url.match(/^data:[^;]+;base64,(.+)$/);
+        if (match) {
+          return { dataUri: url, buffer: Buffer.from(match[1], 'base64') };
+        }
+        return null;
+      }
+
+      if (url.startsWith('http://') || url.startsWith('https://')) {
+        const buffer = await this.fetchImageBuffer(url);
+        if (buffer) {
+          const contentType = this.guessContentType(url);
+          const dataUri = `data:${contentType};base64,${buffer.toString('base64')}`;
+          return { dataUri, buffer };
+        }
+        return null;
+      }
+
+      // Local file
+      const localPath = path.isAbsolute(url) ? url : path.join(process.cwd(), url);
+      if (fs.existsSync(localPath)) {
+        const buffer = fs.readFileSync(localPath);
+        const ext = path.extname(localPath).slice(1).toLowerCase();
+        const mime = ext === 'svg' ? 'image/svg+xml' : `image/${ext === 'jpg' ? 'jpeg' : ext}`;
+        const dataUri = `data:${mime};base64,${buffer.toString('base64')}`;
+        return { dataUri, buffer };
+      }
+    } catch {
+      this.logger.warn(`Could not resolve image: ${url} — skipping`);
+    }
+    return null;
+  }
+
+  /** Fetch a remote image and return the raw buffer */
+  private async fetchImageBuffer(url: string): Promise<Buffer | null> {
+    try {
+      // Use global fetch (available in Node 18+)
+      const res = await fetch(url);
+      if (!res.ok) {
+        this.logger.warn(`Image fetch failed (${res.status}): ${url}`);
+        return null;
+      }
+      const arrayBuf = await res.arrayBuffer();
+      return Buffer.from(arrayBuf);
+    } catch (err: any) {
+      this.logger.warn(`Failed to fetch image: ${url} — ${err?.message || err}`);
+      return null;
+    }
+  }
+
+  /** Guess content type from URL extension */
+  private guessContentType(url: string): string {
+    const ext = path.extname(new URL(url).pathname).slice(1).toLowerCase();
+    if (ext === 'jpg' || ext === 'jpeg') return 'image/jpeg';
+    if (ext === 'png') return 'image/png';
+    if (ext === 'svg') return 'image/svg+xml';
+    if (ext === 'gif') return 'image/gif';
+    if (ext === 'webp') return 'image/webp';
+    return 'image/png';
+  }
+
+  /** Extract width/height from PNG or JPEG buffer */
+  private getImageDimensions(buf: Buffer): { width: number; height: number } | null {
+    try {
+      // PNG: width at offset 16, height at offset 20 (4 bytes each, big-endian)
+      if (buf[0] === 0x89 && buf[1] === 0x50 && buf[2] === 0x4E && buf[3] === 0x47) {
+        const width = buf.readUInt32BE(16);
+        const height = buf.readUInt32BE(20);
+        return { width, height };
+      }
+      // JPEG: scan for SOF0 marker (0xFF 0xC0) or SOF2 (0xFF 0xC2)
+      if (buf[0] === 0xFF && buf[1] === 0xD8) {
+        let offset = 2;
+        while (offset < buf.length - 8) {
+          if (buf[offset] !== 0xFF) { offset++; continue; }
+          const marker = buf[offset + 1];
+          if (marker === 0xC0 || marker === 0xC2) {
+            const height = buf.readUInt16BE(offset + 5);
+            const width = buf.readUInt16BE(offset + 7);
+            return { width, height };
+          }
+          const segLen = buf.readUInt16BE(offset + 2);
+          offset += 2 + segLen;
+        }
+      }
+    } catch { /* ignore */ }
+    return null;
   }
 }

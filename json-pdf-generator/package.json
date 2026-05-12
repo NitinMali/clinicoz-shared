@@ -12,7 +12,7 @@
     "start:dev": "tsc --watch & node --watch dist/src/main.js",
     "start:local": "tsc && node dist/src/main.js",
     "build": "tsc",
-    "postbuild": "node -e \"const fs=require('fs');const p=require('path');function cpR(s,d){fs.mkdirSync(d,{recursive:true});fs.readdirSync(s).forEach(f=>{const sp=p.join(s,f),dp=p.join(d,f);fs.statSync(sp).isDirectory()?cpR(sp,dp):fs.copyFileSync(sp,dp)})};cpR('src/template','dist/template')\"",
+    "postbuild": "node -e \"const fs=require('fs');const p=require('path');function cpR(s,d){fs.mkdirSync(d,{recursive:true});fs.readdirSync(s).forEach(f=>{const sp=p.join(s,f),dp=p.join(d,f);fs.statSync(sp).isDirectory()?cpR(sp,dp):fs.copyFileSync(sp,dp)})};cpR('src/template','dist/template');cpR('src/template','dist/src/template')\"",
     "test": "jest --run",
     "test:watch": "jest",
     "lambda:build": "npm run build && cp -r src/template dist/template && cp -r templates dist/../templates",

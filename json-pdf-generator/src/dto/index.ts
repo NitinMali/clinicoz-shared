@@ -20,6 +20,10 @@ export class ParagraphItemDto {
   @IsOptional()
   @IsIn(['left', 'center', 'right', 'justify'])
   align?: 'left' | 'center' | 'right' | 'justify';
+
+  @IsOptional()
+  @IsString()
+  style?: string;
 }
 
 export class TableItemDto {
@@ -27,10 +31,14 @@ export class TableItemDto {
   type: 'table';
 
   @IsArray()
-  headers: string[];
+  headers: (string | { text: string; style?: string })[];
 
   @IsArray()
-  rows: string[][];
+  rows: (string | { text: string; style?: string })[][];
+
+  @IsOptional()
+  @IsString()
+  style?: string;
 }
 
 export class BulletListItemDto {
@@ -39,7 +47,35 @@ export class BulletListItemDto {
 
   @IsArray()
   @ArrayMinSize(1)
-  items: string[];
+  items: (string | { text: string; style?: string })[];
+
+  @IsOptional()
+  @IsString()
+  style?: string;
+}
+
+export class ImageItemDto {
+  @IsIn(['image'])
+  type: 'image';
+
+  @IsString()
+  src: string;
+
+  @IsOptional()
+  @IsString()
+  width?: string;
+
+  @IsOptional()
+  @IsString()
+  height?: string;
+
+  @IsOptional()
+  @IsIn(['left', 'center', 'right'])
+  align?: 'left' | 'center' | 'right';
+
+  @IsOptional()
+  @IsString()
+  style?: string;
 }
 
 export class GridColumnDto {
@@ -55,7 +91,7 @@ export class GridColumnDto {
   @ArrayMinSize(1)
   @ValidateNested({ each: true })
   @Type(() => Object)
-  content: (ParagraphItemDto | TableItemDto | BulletListItemDto)[];
+  content: (ParagraphItemDto | TableItemDto | BulletListItemDto | ImageItemDto)[];
 }
 
 export class GridItemDto {
@@ -71,6 +107,10 @@ export class GridItemDto {
   @IsOptional()
   @IsString()
   gap?: string;
+
+  @IsOptional()
+  @IsString()
+  style?: string;
 }
 
 export class PdfSectionDto {
@@ -81,7 +121,11 @@ export class PdfSectionDto {
   @ArrayMinSize(1)
   @ValidateNested({ each: true })
   @Type(() => Object)
-  content: (ParagraphItemDto | TableItemDto | BulletListItemDto | GridItemDto)[];
+  content: (ParagraphItemDto | TableItemDto | BulletListItemDto | GridItemDto | ImageItemDto)[];
+
+  @IsOptional()
+  @IsString()
+  style?: string;
 }
 
 export class PdfHeaderDto {
@@ -96,6 +140,11 @@ export class PdfHeaderDto {
   @IsOptional()
   @IsString()
   description?: string;
+
+  /** Full-width header image — replaces logo+title+description when provided */
+  @IsOptional()
+  @IsString()
+  imageUrl?: string;
 
   @IsOptional()
   @IsBoolean()

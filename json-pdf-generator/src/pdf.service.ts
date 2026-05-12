@@ -126,7 +126,19 @@ export class PdfService {
 
       // Footer template
       const footerText = data?.footer?.text ?? '';
-      const footerTemplate = footerText
+      const footerImageUrl = data?.footer?.imageUrl ?? '';
+      // Parse margin values to compute negative offsets for edge-to-edge images
+      const parseMm = (v: string) => {
+        const m = v.trim().match(/^([\d.]+)\s*mm$/);
+        return m ? parseFloat(m[1]) : 0;
+      };
+      const mLeft = parseMm(marginLeft);
+      const mRight = parseMm(marginRight);
+      // Negative top margin compensates for Puppeteer header iframe's default body margin
+      const edgeImageStyle = `display:block;width:calc(100% + ${mLeft + mRight}mm);height:auto;margin:-5mm -${mRight}mm 0 -${mLeft}mm;padding:0;vertical-align:top;border:none;`;
+      const footerTemplate = footerImageUrl
+        ? `<img src="${footerImageUrl}" style="${edgeImageStyle}" />`
+        : footerText
         ? `<div style="width:100%;font-size:9pt;color:#777;text-align:center;
                        border-top:1px solid #ddd;padding-top:5px;
                        font-family:Helvetica,Arial,sans-serif;">
@@ -137,25 +149,39 @@ export class PdfService {
       // Header template — only used when showOnAllPages is true and no full-width image
       const showHeaderOnAll = data?.header?.showOnAllPages === true && !hasHeaderImage;
       let headerTemplate = '<span></span>';
+      let displayHeaderFooter = true;
 
       if (showHeaderOnAll && data?.header) {
         const h = data.header;
-        const logoPart = h.logoUrl
-          ? `<img src="${h.logoUrl}" style="height:40px;margin-right:12px;" />`
-          : '';
-        const titlePart = h.title
-          ? `<span style="font-size:14pt;font-weight:700;color:#111;">${h.title}</span>`
-          : '';
-        const descPart = h.description
-          ? `<span style="font-size:9pt;color:#555;margin-left:8px;">${h.description}</span>`
-          : '';
 
-        headerTemplate = `
-          <div style="width:100%;display:flex;align-items:center;padding:0 20px;
-                      border-bottom:1px solid #ddd;padding-bottom:6px;
-                      font-family:Helvetica,Arial,sans-serif;">
-            ${logoPart}${titlePart}${descPart}
-          </div>`;
+        // If headerImageUrl exists, use it as entire header (edge-to-edge)
+        if (h.imageUrl) {
+          headerTemplate = `<img src="${h.imageUrl}" style="${edgeImageStyle}" />`;
+        } else {
+          const logoPart = h.logoUrl
+            ? `<img src="${h.logoUrl}" style="height:40px;" />`
+            : '';
+          const titlePart = h.title
+            ? `<span style="font-size:14pt;font-weight:700;color:#111;">${h.title}</span>`
+            : '';
+          const descPart = h.description
+            ? `<span style="font-size:9pt;color:#555;">${h.description.replace(/\n/g, '<br/>')}</span>`
+            : '';
+
+          // Only build header template if there's actual content
+          if (logoPart || titlePart || descPart) {
+            headerTemplate = `
+              <table style="width:100%;border-collapse:collapse;border-bottom:1px solid #ddd;font-family:Helvetica,Arial,sans-serif;">
+                <tr>
+                  <td style="padding:8px 0 8px 20px;width:1%;white-space:nowrap;">${logoPart}</td>
+                  <td style="padding:8px 20px 8px 12px;width:99%;">${titlePart}${descPart ? '<br/>' + descPart : ''}</td>
+                </tr>
+              </table>`;
+          } else {
+            // No header content, disable header
+            displayHeaderFooter = false;
+          }
+        }
       }
 
       // Use CDP directly — Puppeteer's page.pdf() has a bug in v24+ with Chrome 148+

@@ -115,10 +115,13 @@ export class PdfService {
       const marginLeft = layout.marginLeft ?? '15mm';
       const marginRight = layout.marginRight ?? '15mm';
 
-      // If header has imageUrl, use 0 top margin so the image starts at the page top
+      // If header has imageUrl and NOT showOnAllPages, use 0 top margin so the image starts at the page top
       // The image is part of the HTML body content and handles its own spacing
       const hasHeaderImage = !!data?.header?.imageUrl;
-      const headerHeight = hasHeaderImage ? '0mm' : (layout.headerHeight ?? '20mm');
+      const showHeaderOnAll = data?.header?.showOnAllPages === true;
+      const headerImageInBody = hasHeaderImage && !showHeaderOnAll;
+      const headerImageInTemplate = hasHeaderImage && showHeaderOnAll;
+      const headerHeight = headerImageInBody ? '0mm' : (layout.headerHeight ?? '20mm');
 
       // Compute effective top/bottom margins
       const topMargin = this.addCssValues(headerHeight, bodyPaddingTop);
@@ -146,41 +149,36 @@ export class PdfService {
            </div>`
         : '<span></span>';
 
-      // Header template — only used when showOnAllPages is true and no full-width image
-      const showHeaderOnAll = data?.header?.showOnAllPages === true && !hasHeaderImage;
+      // Header template — used when showOnAllPages is true
+      const showLogoHeaderOnAll = showHeaderOnAll && !hasHeaderImage;
       let headerTemplate = '<span></span>';
       let displayHeaderFooter = true;
 
-      if (showHeaderOnAll && data?.header) {
+      if (headerImageInTemplate && data?.header?.imageUrl) {
+        // Full-width image header on every page
+        headerTemplate = `<img src="${data.header.imageUrl}" style="${edgeImageStyle}" />`;
+      } else if (showLogoHeaderOnAll && data?.header) {
         const h = data.header;
+        const logoPart = h.logoUrl
+          ? `<img src="${h.logoUrl}" style="height:40px;" />`
+          : '';
+        const titlePart = h.title
+          ? `<span style="font-size:14pt;font-weight:700;color:#111;">${h.title}</span>`
+          : '';
+        const descPart = h.description
+          ? `<span style="font-size:9pt;color:#555;">${h.description.replace(/\n/g, '<br/>')}</span>`
+          : '';
 
-        // If headerImageUrl exists, use it as entire header (edge-to-edge)
-        if (h.imageUrl) {
-          headerTemplate = `<img src="${h.imageUrl}" style="${edgeImageStyle}" />`;
+        if (logoPart || titlePart || descPart) {
+          headerTemplate = `
+            <table style="width:100%;border-collapse:collapse;border-bottom:1px solid #ddd;font-family:Helvetica,Arial,sans-serif;">
+              <tr>
+                <td style="padding:8px 0 8px 20px;width:1%;white-space:nowrap;">${logoPart}</td>
+                <td style="padding:8px 20px 8px 12px;width:99%;">${titlePart}${descPart ? '<br/>' + descPart : ''}</td>
+              </tr>
+            </table>`;
         } else {
-          const logoPart = h.logoUrl
-            ? `<img src="${h.logoUrl}" style="height:40px;" />`
-            : '';
-          const titlePart = h.title
-            ? `<span style="font-size:14pt;font-weight:700;color:#111;">${h.title}</span>`
-            : '';
-          const descPart = h.description
-            ? `<span style="font-size:9pt;color:#555;">${h.description.replace(/\n/g, '<br/>')}</span>`
-            : '';
-
-          // Only build header template if there's actual content
-          if (logoPart || titlePart || descPart) {
-            headerTemplate = `
-              <table style="width:100%;border-collapse:collapse;border-bottom:1px solid #ddd;font-family:Helvetica,Arial,sans-serif;">
-                <tr>
-                  <td style="padding:8px 0 8px 20px;width:1%;white-space:nowrap;">${logoPart}</td>
-                  <td style="padding:8px 20px 8px 12px;width:99%;">${titlePart}${descPart ? '<br/>' + descPart : ''}</td>
-                </tr>
-              </table>`;
-          } else {
-            // No header content, disable header
-            displayHeaderFooter = false;
-          }
+          displayHeaderFooter = false;
         }
       }
 
@@ -189,7 +187,7 @@ export class PdfService {
       const client = await page.createCDPSession();
       const cdpResult = await client.send('Page.printToPDF', {
         landscape: false,
-        displayHeaderFooter: !!(footerText || showHeaderOnAll),
+        displayHeaderFooter: !!(footerText || headerImageInTemplate || showLogoHeaderOnAll),
         headerTemplate,
         footerTemplate,
         printBackground: true,
@@ -197,8 +195,8 @@ export class PdfService {
         paperHeight: 11.69,
         marginTop: this.mmToInches(topMargin),
         marginBottom: this.mmToInches(bottomMargin),
-        marginLeft: hasHeaderImage ? 0 : this.mmToInches(marginLeft),
-        marginRight: hasHeaderImage ? 0 : this.mmToInches(marginRight),
+        marginLeft: this.mmToInches(marginLeft),
+        marginRight: this.mmToInches(marginRight),
         preferCSSPageSize: false,
         generateTaggedPDF: false,
         transferMode: 'ReturnAsBase64',
@@ -349,13 +347,18 @@ export class PdfService {
       if (resolved) {
         result.header.imageUrl = resolved.dataUri;
         // Auto-calculate headerHeight based on image aspect ratio
-        // A4 = 210mm wide, image spans full width (0 left/right margin for imageUrl)
         const dims = this.getImageDimensions(resolved.buffer);
         if (dims) {
-          const pageWidth = 210; // A4 mm
+          // When showOnAllPages, image goes in Puppeteer headerTemplate spanning full page width (210mm)
+          // When not showOnAllPages, image is in HTML body within margins
+          const pageWidth = result.header.showOnAllPages ? 210 : 180; // A4 mm (full or within 15mm margins)
           const computedHeight = (pageWidth * dims.height) / dims.width;
           const clamped = Math.max(15, Math.min(120, computedHeight));
           if (!result.layout) result.layout = {};
+          // Auto-set headerHeight if user hasn't explicitly provided one
+          if (result.header.showOnAllPages && !data.layout?.headerHeight) {
+            result.layout.headerHeight = `${Math.ceil(clamped + 2)}mm`; // +2mm padding
+          }
           result._headerImageHeight = clamped;
         }
       } else {

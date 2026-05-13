@@ -25,7 +25,7 @@
     .doc-header .header-text p  { font-size: 10pt; color: #555; margin-top: 4px; }
 
     /* Full-width header image mode */
-    .doc-header--image { padding: 0; border-bottom: none; display: block; margin: 0 -40px 24px; }
+    .doc-header--image { padding: 0; border-bottom: none; display: block; margin: 0 0 24px; }
     .doc-header--image .header-full-image { width: 100%; height: auto; display: block; }
 
     /* ── Body ────────────────────────────────────────────── */
@@ -75,6 +75,7 @@
 <body>
 
   {{#if header}}
+  {{#unless header.showOnAllPages}}
   {{#if header.imageUrl}}
   <header class="doc-header doc-header--image">
     <img src="{{{header.imageUrl}}}" alt="Header" class="header-full-image" />
@@ -83,17 +84,18 @@
   <header class="doc-header">
     {{#if header.logoUrl}}<img src="{{{header.logoUrl}}}" alt="Logo" />{{/if}}
     <div class="header-text">
-      {{#if header.title}}<h1>{{header.title}}</h1>{{/if}}
-      {{#if header.description}}<p>{{header.description}}</p>{{/if}}
+      {{#if header.title}}<h1>{{nl2br header.title}}</h1>{{/if}}
+      {{#if header.description}}<p>{{nl2br header.description}}</p>{{/if}}
     </div>
   </header>
   {{/if}}
+  {{/unless}}
   {{/if}}
 
   <main class="doc-body">
     {{#each body}}
     <section class="section"{{#if this.style}} style="{{this.style}}"{{/if}}>
-      <div class="section-title">{{this.title}}</div>
+      <div class="section-title">{{nl2br this.title}}</div>
       {{> contentList content=this.content}}
     </section>
     {{/each}}

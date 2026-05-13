@@ -1,0 +1,151 @@
+{
+  "template": "document",
+  "data": {
+    "header": {
+      "imageUrl": "https://clinicoz-files-tst.s3.ap-south-1.amazonaws.com/2412da17-b046-436f-9d0a-6ac3ad73a205-elyra_letterhead.png",
+      "showOnAllPages": true
+    },
+    "body": [
+      {
+        "title": "Patient Invoice\nINV-2024-00842",
+        "style": "border-left:4px solid #1565c0; padding-left:12px",
+        "content": [
+          {
+            "type": "paragraph",
+            "text": "Dear Patient,\nPlease find your invoice details below.\nFor any queries, contact our billing department.",
+            "style": "color:#333; line-height:1.8"
+          },
+          {
+            "type": "grid",
+            "gap": "8px",
+            "style": "margin-top:12px",
+            "columns": [
+              {
+                "width": "40%",
+                "content": [
+                  { "type": "paragraph", "text": "Invoice Number:", "style": "color:#777" },
+                  { "type": "paragraph", "text": "Patient Name:", "style": "color:#777" },
+                  { "type": "paragraph", "text": "Date of Service:", "style": "color:#777" },
+                  { "type": "paragraph", "text": "Due Date:", "style": "color:#777" }
+                ]
+              },
+              {
+                "width": "60%",
+                "align": "right",
+                "content": [
+                  { "type": "paragraph", "text": "INV-2024-00842", "align": "right", "style": "font-weight:bold" },
+                  { "type": "paragraph", "text": "Rajesh Kumar", "align": "right" },
+                  { "type": "paragraph", "text": "10 April 2024", "align": "right" },
+                  { "type": "paragraph", "text": "30 April 2024", "align": "right", "style": "color:#d32f2f; font-weight:bold" }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "title": "Services Rendered",
+        "content": [
+          {
+            "type": "table",
+            "style": "font-size:10pt",
+            "headers": [
+              "Service",
+              "Doctor",
+              "Qty",
+              { "text": "Rate (₹)", "style": "text-align:right" },
+              { "text": "Amount (₹)", "style": "text-align:right; font-weight:bold" }
+            ],
+            "rows": [
+              ["General Consultation", "Dr. Priya Sharma", "1", { "text": "800", "style": "text-align:right" }, { "text": "800", "style": "text-align:right" }],
+              [{ "text": "Blood Test\nCBC + Lipid Profile", "style": "color:#555" }, "Lab", "1", { "text": "1,200", "style": "text-align:right" }, { "text": "1,200", "style": "text-align:right" }],
+              ["X-Ray (Chest PA)", "Dr. Amit Patel", "1", { "text": "600", "style": "text-align:right" }, { "text": "600", "style": "text-align:right" }],
+              ["Physiotherapy Session", "Dr. Neha Gupta", "3", { "text": "500", "style": "text-align:right" }, { "text": "1,500", "style": "text-align:right" }],
+              [{ "text": "Total", "style": "font-weight:bold" }, "", "", "", { "text": "4,100", "style": "text-align:right; font-weight:bold; font-size:12pt; color:#1565c0" }]
+            ]
+          }
+        ]
+      },
+      {
+        "title": "Payment Information",
+        "content": [
+          {
+            "type": "bulletList",
+            "items": [
+              { "text": "Payment Mode: UPI / Bank Transfer / Cash", "style": "font-weight:bold" },
+              "UPI ID: clinicoz@ybl",
+              { "text": "Bank: HDFC Bank\nAccount: 1234567890\nIFSC: HDFC0001234", "style": "color:#555" },
+              { "text": "Please pay within 30 days to avoid late fees", "style": "color:#d32f2f; font-style:italic" }
+            ]
+          },
+          {
+            "type": "image",
+            "src": "https://clinicoz-files-tst.s3.ap-south-1.amazonaws.com/2412da17-b046-436f-9d0a-6ac3ad73a205-elyra_letterhead.png",
+            "width": "120px",
+            "align": "center",
+            "style": "margin-top:12px; border:1px solid #ddd; padding:4px"
+          },
+          {
+            "type": "paragraph",
+            "text": "Scan QR code above to pay via UPI",
+            "align": "center",
+            "style": "font-size:9pt; color:#777; margin-top:4px"
+          }
+        ]
+      },
+      {
+        "title": "Image in Grid Example",
+        "content": [
+          {
+            "type": "grid",
+            "gap": "16px",
+            "columns": [
+              {
+                "width": "30%",
+                "content": [
+                  {
+                    "type": "image",
+                    "src": "https://clinicoz-files-tst.s3.ap-south-1.amazonaws.com/2412da17-b046-436f-9d0a-6ac3ad73a205-elyra_letterhead.png",
+                    "width": "100%",
+                    "style": "border-radius:4px"
+                  }
+                ]
+              },
+              {
+                "width": "70%",
+                "content": [
+                  { "type": "paragraph", "text": "Clinic Address", "style": "font-weight:bold; font-size:12pt" },
+                  { "type": "paragraph", "text": "Elyra Health Clinic\n42, MG Road, Andheri West\nMumbai, Maharashtra 400058\n\nPhone: +91 22 1234 5678\nEmail: info@elyrahealth.com", "style": "line-height:1.8; color:#444" }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "title": "Terms & Conditions",
+        "style": "background:#f8f9fa; padding:12px; border-radius:6px",
+        "content": [
+          {
+            "type": "paragraph",
+            "text": "1. All fees are non-refundable once services are rendered.\n2. Insurance claims must be submitted within 15 days.\n3. Follow-up consultations within 7 days are complimentary.\n4. Reports will be available within 24-48 hours.\n5. For emergencies, call our 24/7 helpline: 1800-123-4567.",
+            "style": "font-size:9pt; color:#555; line-height:1.8"
+          }
+        ]
+      }
+    ],
+    "footer": {
+      "text": "Elyra Health Clinic | GSTIN: 27AABCE1234F1Z5 | CIN: U85110MH2020PTC123456"
+    },
+    "layout": {
+      "headerHeight": "60mm",
+      "footerHeight": "15mm",
+      "marginLeft": "15mm",
+      "marginRight": "15mm"
+    }
+  },
+  "output": {
+    "s3Bucket": "clinicoz-pdf-qa-675892461286-ap-south-1-an",
+    "s3Folder": "test"
+   }
+}

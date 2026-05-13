@@ -100,7 +100,30 @@ When `imageUrl` is provided, it replaces the logo+title+description entirely. Th
 | `imageUrl` | string | — | Full-width header image (replaces logo+title when set) |
 | `title` | string | — | Header title text |
 | `description` | string | — | Subtitle / description |
-| `showOnAllPages` | boolean | `false` | `true` = header on every page (logo+title mode only) |
+| `showOnAllPages` | boolean | `false` | `true` = header on every page, `false` = first page only |
+
+### `showOnAllPages` behavior
+
+| `imageUrl` | `showOnAllPages` | Result |
+|---|---|---|
+| set | `false` (default) | Image appears on first page only, edge-to-edge with 0 margins |
+| set | `true` | Image repeats on every page via Puppeteer's header template |
+| not set | `false` | Logo+title in HTML body — first page only |
+| not set | `true` | Logo+title repeats on every page via Puppeteer's header template |
+
+When using `showOnAllPages: true` with `imageUrl`, the service **auto-calculates** `headerHeight` based on the image's aspect ratio so body content doesn't overlap. You can still override it manually if needed:
+
+```json
+"header": {
+  "imageUrl": "https://my-bucket.s3.amazonaws.com/letterhead.png",
+  "showOnAllPages": true
+},
+"layout": {
+  "headerHeight": "55mm"
+}
+```
+
+> If `headerHeight` is not provided, it's auto-calculated from the image dimensions (image width scaled to A4 page width + 2mm padding).
 
 ### Image/Logo source formats
 
@@ -150,7 +173,9 @@ The footer renders at the bottom of every page.
 | `marginLeft` | string | `"15mm"` | Left page margin |
 | `marginRight` | string | `"15mm"` | Right page margin |
 
-> When `imageUrl` is used, `headerHeight` and left/right margins are automatically set to 0 so the image spans edge-to-edge.
+> **Note on `imageUrl`:**
+> - When `imageUrl` is used with `showOnAllPages: false` (default), the image renders in the HTML body on the first page only. Normal margins apply.
+> - When `imageUrl` is used with `showOnAllPages: true`, the image repeats on every page via Puppeteer's header template. `headerHeight` is auto-calculated from the image dimensions if not explicitly set.
 
 ---
 

@@ -1,5 +1,7 @@
 export interface PdfHeader {
   logoUrl?: string;
+  /** Inline CSS applied to the logo img element (e.g. "width:120px; border-radius:4px") */
+  logoStyle?: string;
   title?: string;
   description?: string;
   /** Full-width header image — when provided, replaces logo+title+description entirely */

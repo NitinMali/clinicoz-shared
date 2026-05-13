@@ -135,6 +135,10 @@ export class PdfHeaderDto {
 
   @IsOptional()
   @IsString()
+  logoStyle?: string;
+
+  @IsOptional()
+  @IsString()
   title?: string;
 
   @IsOptional()

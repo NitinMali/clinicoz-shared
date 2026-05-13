@@ -2,7 +2,10 @@
   "template": "document",
   "data": {
     "header": {
-      "imageUrl": "https://clinicoz-files-tst.s3.ap-south-1.amazonaws.com/2412da17-b046-436f-9d0a-6ac3ad73a205-elyra_letterhead.png",
+      "logoUrl": "https://graphicsfamily.com/wp-content/uploads/edd/2021/07/Editable-Health-Logo-Design-Template.png",
+      "logoStyle": "width:75px; height:auto; border-radius:4px",
+      "title": "Clinicoz Health Services",
+      "description": "Patient Invoice — Generated via REST API",
       "showOnAllPages": true
     },
     "body": [
@@ -138,6 +141,7 @@
       "text": "Elyra Health Clinic | GSTIN: 27AABCE1234F1Z5 | CIN: U85110MH2020PTC123456"
     },
     "layout": {
+      "headerHeight": "30mm",
       "footerHeight": "15mm",
       "marginLeft": "15mm",
       "marginRight": "15mm"

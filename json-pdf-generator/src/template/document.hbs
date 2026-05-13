@@ -82,7 +82,7 @@
   </header>
   {{else}}
   <header class="doc-header">
-    {{#if header.logoUrl}}<img src="{{{header.logoUrl}}}" alt="Logo" />{{/if}}
+    {{#if header.logoUrl}}<img src="{{{header.logoUrl}}}" alt="Logo"{{#if header.logoStyle}} style="{{header.logoStyle}}"{{/if}} />{{/if}}
     <div class="header-text">
       {{#if header.title}}<h1>{{nl2br header.title}}</h1>{{/if}}
       {{#if header.description}}<p>{{nl2br header.description}}</p>{{/if}}

@@ -78,11 +78,14 @@ Two modes: **logo + title** or **full-width image**.
 ```json
 "header": {
   "logoUrl": "src/img/logo.png",
+  "logoStyle": "width:150px; height:auto",
   "title": "Monthly Report",
   "description": "Generated on 2024-04-01",
   "showOnAllPages": false
 }
 ```
+
+If `logoStyle` is not provided, the logo defaults to `height: 56px` (first page) or `height: 40px` (repeating header).
 
 ### Mode 2: Full-width header image
 
@@ -97,6 +100,7 @@ When `imageUrl` is provided, it replaces the logo+title+description entirely. Th
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
 | `logoUrl` | string | — | Logo image (local path, URL, or data URI blob) |
+| `logoStyle` | string | — | Inline CSS applied to the logo `<img>` (e.g. `"width:150px; height:auto"`) |
 | `imageUrl` | string | — | Full-width header image (replaces logo+title when set) |
 | `title` | string | — | Header title text |
 | `description` | string | — | Subtitle / description |

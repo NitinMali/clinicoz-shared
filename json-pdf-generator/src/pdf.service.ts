@@ -159,8 +159,9 @@ export class PdfService {
         headerTemplate = `<img src="${data.header.imageUrl}" style="${edgeImageStyle}" />`;
       } else if (showLogoHeaderOnAll && data?.header) {
         const h = data.header;
+        const logoStyle = h.logoStyle || 'height:40px;';
         const logoPart = h.logoUrl
-          ? `<img src="${h.logoUrl}" style="height:40px;" />`
+          ? `<img src="${h.logoUrl}" style="${logoStyle}" />`
           : '';
         const titlePart = h.title
           ? `<span style="font-size:14pt;font-weight:700;color:#111;">${h.title}</span>`
@@ -357,7 +358,7 @@ export class PdfService {
           if (!result.layout) result.layout = {};
           // Auto-set headerHeight if user hasn't explicitly provided one
           if (result.header.showOnAllPages && !data.layout?.headerHeight) {
-            result.layout.headerHeight = `${Math.ceil(clamped + 2)}mm`; // +2mm padding
+            result.layout.headerHeight = `${Math.ceil(clamped + 10)}mm`; // +2mm padding
           }
           result._headerImageHeight = clamped;
         }

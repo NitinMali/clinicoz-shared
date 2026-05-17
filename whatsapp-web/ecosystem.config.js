@@ -26,13 +26,9 @@ module.exports = {
     {
       name: 'whatsapp-microservice',
       script: 'dist/main.js',
+      cwd: '/home/ubuntu/whatsapp-web',
       autorestart: true,
       max_restarts: 10,
-      env: {
-        PORT: 3001,
-        REDIS_URL: 'redis://127.0.0.1:6379',
-        API_KEY: 'your-api-key-here',
-      },
     },
   ],
 };

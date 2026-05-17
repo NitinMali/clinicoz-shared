@@ -2,8 +2,6 @@
 
 This document covers network security configuration for the WhatsApp microservice infrastructure using AWS Security Groups.
 
-Testing build 
-
 ---
 
 ## Architecture Overview

@@ -125,9 +125,21 @@ export class WhatsAppSessionService implements OnModuleInit, OnModuleDestroy {
 
     // Wake up — re-launch browser from saved session
     this.logger.log(`Waking up sleeping session for customer ${customerId}...`);
-    const client = await this.wakeUpClient(customerId);
-    this.resetIdleTimer(customerId);
-    return client;
+    try {
+      const client = await this.wakeUpClient(customerId);
+      this.resetIdleTimer(customerId);
+      return client;
+    } catch (e) {
+      // If browser lock conflict, wait briefly and retry once
+      if (e.message?.includes('already running')) {
+        this.logger.warn(`Browser lock conflict for ${customerId}, retrying in 3s...`);
+        await new Promise((r) => setTimeout(r, 3000));
+        const retryClient = await this.wakeUpClient(customerId);
+        this.resetIdleTimer(customerId);
+        return retryClient;
+      }
+      throw e;
+    }
   }
 
   private async wakeUpClient(customerId: string): Promise<Client> {
@@ -210,6 +222,9 @@ export class WhatsAppSessionService implements OnModuleInit, OnModuleDestroy {
     this.clients.set(customerId, client);
 
     const timeout = setTimeout(async () => {
+      // Only clean up if this client is still the active one (not replaced by a newer connection)
+      if (this.clients.get(customerId) !== client) return;
+
       this.logger.warn(`QR generation timed out for customer ${customerId}`);
       try { await client.destroy(); } catch (e) { /* ignore */ }
       this.clients.delete(customerId);
@@ -226,8 +241,10 @@ export class WhatsAppSessionService implements OnModuleInit, OnModuleDestroy {
     client.on('auth_failure', async (msg) => {
       clearTimeout(timeout);
       this.logger.error(`Auth failure for ${customerId}: ${msg}`);
-      try { await client.destroy(); } catch (e) { /* ignore */ }
-      this.clients.delete(customerId);
+      if (this.clients.get(customerId) === client) {
+        try { await client.destroy(); } catch (e) { /* ignore */ }
+        this.clients.delete(customerId);
+      }
       this.clearIdleTimer(customerId);
       await this.redis.set(REDIS_KEYS.STATUS(customerId), ConnectionStatus.DISCONNECTED);
       await this.redis.del(REDIS_KEYS.QR(customerId));
@@ -238,22 +255,32 @@ export class WhatsAppSessionService implements OnModuleInit, OnModuleDestroy {
       const allowedPhone = await this.redis.get(REDIS_KEYS.ALLOWED_PHONE(customerId));
       if (allowedPhone) {
         const authenticatedPhone = client.info?.wid?.user;
-        if (authenticatedPhone && authenticatedPhone !== allowedPhone) {
-          this.logger.warn(
-            `Phone mismatch for customer ${customerId}: ` +
-            `expected ${allowedPhone}, got ${authenticatedPhone}. Disconnecting.`,
-          );
-          try {
-            await client.logout();
-            this.logger.log(`Logout successful for mismatched phone ${authenticatedPhone}`);
-          } catch (e) {
-            this.logger.error(`Logout failed for ${customerId}: ${e.message}`);
+        this.logger.log(
+          `Phone validation for ${customerId}: allowed=${allowedPhone}, authenticated=${authenticatedPhone}`,
+        );
+        if (authenticatedPhone) {
+          // Compare: check if one ends with the other (handles country code prefix differences)
+          const match = allowedPhone === authenticatedPhone
+            || allowedPhone.endsWith(authenticatedPhone)
+            || authenticatedPhone.endsWith(allowedPhone);
+
+          if (!match) {
+            this.logger.warn(
+              `Phone mismatch for customer ${customerId}: ` +
+              `expected ${allowedPhone}, got ${authenticatedPhone}. Disconnecting.`,
+            );
+            try {
+              await client.logout();
+              this.logger.log(`Logout successful for mismatched phone ${authenticatedPhone}`);
+            } catch (e) {
+              this.logger.error(`Logout failed for ${customerId}: ${e.message}`);
+            }
+            try { await client.destroy(); } catch (e) { /* ignore */ }
+            this.clients.delete(customerId);
+            await this.redis.set(REDIS_KEYS.STATUS(customerId), ConnectionStatus.DISCONNECTED);
+            await this.redis.del(REDIS_KEYS.QR(customerId));
+            return;
           }
-          try { await client.destroy(); } catch (e) { /* ignore */ }
-          this.clients.delete(customerId);
-          await this.redis.set(REDIS_KEYS.STATUS(customerId), ConnectionStatus.DISCONNECTED);
-          await this.redis.del(REDIS_KEYS.QR(customerId));
-          return;
         }
       }
 
@@ -266,10 +293,12 @@ export class WhatsAppSessionService implements OnModuleInit, OnModuleDestroy {
 
     client.on('disconnected', async (reason) => {
       this.logger.warn(`Customer ${customerId} disconnected: ${reason}`);
+      if (this.clients.get(customerId) === client) {
+        this.clients.delete(customerId);
+        this.clearIdleTimer(customerId);
+      }
       await this.redis.set(REDIS_KEYS.STATUS(customerId), ConnectionStatus.DISCONNECTED);
       await this.redis.del(REDIS_KEYS.QR(customerId));
-      this.clients.delete(customerId);
-      this.clearIdleTimer(customerId);
     });
 
     await client.initialize();
@@ -321,17 +350,27 @@ export class WhatsAppSessionService implements OnModuleInit, OnModuleDestroy {
   async disconnect(customerId: string): Promise<void> {
     this.clearIdleTimer(customerId);
 
-    const client = this.clients.get(customerId);
+    let client = this.clients.get(customerId);
+
+    // If browser is sleeping, wake it up so we can properly logout from WhatsApp
+    if (!client) {
+      const status = await this.redis.get(REDIS_KEYS.STATUS(customerId));
+      if (status === ConnectionStatus.CONNECTED) {
+        try {
+          this.logger.log(`Waking up session for ${customerId} to perform logout...`);
+          client = await this.wakeUpClient(customerId);
+        } catch (e) {
+          this.logger.warn(`Could not wake session for logout: ${e.message}`);
+        }
+      } else if (!status) {
+        throw new NotFoundException(`No active session for customer ${customerId}`);
+      }
+    }
+
     if (client) {
       try { await client.logout(); } catch (e) { /* ignore */ }
       try { await client.destroy(); } catch (e) { /* ignore */ }
       this.clients.delete(customerId);
-    }
-
-    // Even if browser was sleeping (no client in memory), check Redis
-    const status = await this.redis.get(REDIS_KEYS.STATUS(customerId));
-    if (!status && !client) {
-      throw new NotFoundException(`No active session for customer ${customerId}`);
     }
 
     await this.redis.del(

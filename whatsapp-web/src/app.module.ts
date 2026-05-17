@@ -5,6 +5,7 @@ import { AppConfigModule } from './config/config.module';
 import { AuthModule } from './auth/auth.module';
 import { WhatsAppModule } from './whatsapp/whatsapp.module';
 import { MessagingModule } from './messaging/messaging.module';
+import { HealthController } from './health.controller';
 
 @Module({
   imports: [
@@ -26,5 +27,6 @@ import { MessagingModule } from './messaging/messaging.module';
     WhatsAppModule,
     MessagingModule,
   ],
+  controllers: [HealthController],
 })
 export class AppModule {}

@@ -64,9 +64,23 @@ jobs:
             fi
 
             # Create app directory
-            mkdir -p ${{ env.APP_DIR }}
+            sudo mkdir -p ${{ env.APP_DIR }}
+            sudo chown -R ${{ env.EC2_USER }}:${{ env.EC2_USER }} ${{ env.APP_DIR }}
 
-            echo "EC2 ready: Node $(node -v) | PM2 $(pm2 -v)"
+            echo "EC2 ready: Node $(node -v) | PM2 $(sudo pm2 -v)"
+
+      # ── Stop app and clean old dist ──
+      - name: Stop and clean
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ env.EC2_HOST }}
+          username: ${{ env.EC2_USER }}
+          key: ${{ secrets.EC2_PRIVATE_KEY }}
+          script: |
+            set -e
+            sudo pm2 stop ${{ env.APP_NAME }} || true
+            sudo pm2 delete ${{ env.APP_NAME }} || true
+            sudo rm -rf ${{ env.APP_DIR }}/dist
 
       # ── Copy built files to EC2 ──
       - name: Copy dist
@@ -129,7 +143,7 @@ jobs:
           script: |
             set -e
             cd ${{ env.APP_DIR }}
-            npm ci --omit=dev
-            pm2 restart ${{ env.APP_NAME }} || pm2 start ecosystem.config.js
-            pm2 save
+            sudo npm ci --omit=dev
+            sudo pm2 start ecosystem.config.js
+            sudo pm2 save
             echo "Deploy complete: $(date)"

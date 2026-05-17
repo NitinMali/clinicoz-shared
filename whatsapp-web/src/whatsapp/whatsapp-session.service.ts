@@ -161,7 +161,7 @@ export class WhatsAppSessionService implements OnModuleInit, OnModuleDestroy {
 
   // ── Connection initiation (async QR flow) ──
 
-  async initiateConnection(customerId: string): Promise<void> {
+  async initiateConnection(customerId: string, allowedPhone?: string): Promise<void> {
     const existingStatus = await this.redis.get(REDIS_KEYS.STATUS(customerId));
     if (existingStatus === ConnectionStatus.CONNECTED && this.clients.has(customerId)) {
       throw new ConflictException('Customer already connected');
@@ -177,6 +177,14 @@ export class WhatsAppSessionService implements OnModuleInit, OnModuleDestroy {
       this.clients.delete(customerId);
     }
     this.clearIdleTimer(customerId);
+
+    // Store the allowed phone number if provided
+    if (allowedPhone) {
+      const normalized = allowedPhone.replace(/[^0-9]/g, '');
+      await this.redis.set(REDIS_KEYS.ALLOWED_PHONE(customerId), normalized);
+    } else {
+      await this.redis.del(REDIS_KEYS.ALLOWED_PHONE(customerId));
+    }
 
     await this.redis.del(REDIS_KEYS.QR(customerId));
     await this.redis.set(REDIS_KEYS.STATUS(customerId), ConnectionStatus.AWAITING_SCAN);
@@ -226,6 +234,29 @@ export class WhatsAppSessionService implements OnModuleInit, OnModuleDestroy {
     });
 
     client.on('ready', async () => {
+      // Validate the scanned phone number against the allowed number
+      const allowedPhone = await this.redis.get(REDIS_KEYS.ALLOWED_PHONE(customerId));
+      if (allowedPhone) {
+        const authenticatedPhone = client.info?.wid?.user;
+        if (authenticatedPhone && authenticatedPhone !== allowedPhone) {
+          this.logger.warn(
+            `Phone mismatch for customer ${customerId}: ` +
+            `expected ${allowedPhone}, got ${authenticatedPhone}. Disconnecting.`,
+          );
+          try {
+            await client.logout();
+            this.logger.log(`Logout successful for mismatched phone ${authenticatedPhone}`);
+          } catch (e) {
+            this.logger.error(`Logout failed for ${customerId}: ${e.message}`);
+          }
+          try { await client.destroy(); } catch (e) { /* ignore */ }
+          this.clients.delete(customerId);
+          await this.redis.set(REDIS_KEYS.STATUS(customerId), ConnectionStatus.DISCONNECTED);
+          await this.redis.del(REDIS_KEYS.QR(customerId));
+          return;
+        }
+      }
+
       this.logger.log(`Customer ${customerId} connected successfully`);
       await this.redis.set(REDIS_KEYS.STATUS(customerId), ConnectionStatus.CONNECTED);
       await this.redis.del(REDIS_KEYS.QR(customerId));
@@ -307,6 +338,7 @@ export class WhatsAppSessionService implements OnModuleInit, OnModuleDestroy {
       REDIS_KEYS.SESSION(customerId),
       REDIS_KEYS.QR(customerId),
       REDIS_KEYS.STATUS(customerId),
+      REDIS_KEYS.ALLOWED_PHONE(customerId),
     );
   }
 

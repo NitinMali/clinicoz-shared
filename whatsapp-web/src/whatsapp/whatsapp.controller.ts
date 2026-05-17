@@ -1,4 +1,4 @@
-import { Controller, Post, Get, Param, HttpCode, Res } from '@nestjs/common';
+import { Controller, Post, Get, Param, HttpCode, Res, Body } from '@nestjs/common';
 import { Response } from 'express';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -20,12 +20,18 @@ export class WhatsAppController {
 
   @Post('connect/:customerId')
   @HttpCode(202)
-  async connect(@Param('customerId') customerId: string) {
-    await this.sessionService.initiateConnection(customerId);
+  async connect(
+    @Param('customerId') customerId: string,
+    @Body('allowedPhone') allowedPhone?: string,
+  ) {
+    await this.sessionService.initiateConnection(customerId, allowedPhone);
     return {
       customerId,
       status: ConnectionStatus.AWAITING_SCAN,
-      message: 'Connection initiated. Poll GET /whatsapp/connect/:customerId/qr for the QR code.',
+      qrUrl: `/whatsapp/connect/${customerId}/qr`,
+      qrImageUrl: `/whatsapp/connect/${customerId}/qr/image`,
+      statusUrl: `/whatsapp/status/${customerId}`,
+      ...(allowedPhone && { allowedPhone, note: 'Only this phone number will be accepted.' }),
     };
   }
 

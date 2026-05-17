@@ -1,6 +1,6 @@
 # Technical Guide — WhatsApp Microservice
 
-This document covers the internals of the WhatsApp microservice: how whatsapp-web.js works under the hood, session lifecycle, message queue architecture, Redis data model, security, deployment considerations, and known limitations.
+This document covers the internals: how whatsapp-web.js works, session lifecycle, message queue architecture, Redis data model, security, deployment, and known limitations.
 
 ---
 
@@ -23,7 +23,7 @@ whatsapp-web.js is a Node.js library that automates WhatsApp Web using Puppeteer
 | Event | When it fires | What we do |
 |---|---|---|
 | `qr` | WhatsApp sends a QR code | Store in Redis, serve via API |
-| `ready` | Session authenticated after QR scan | Set status to `connected`, delete QR from Redis |
+| `ready` | Session authenticated after QR scan | Validate phone number, set status to `connected`, delete QR from Redis |
 | `authenticated` | Credentials validated (before `ready`) | Internal — handled by auth strategy |
 | `auth_failure` | Stored credentials are invalid | Clean up, set status to `disconnected` |
 | `disconnected` | Phone goes offline, user unlinks, or session expires | Clean up, set status to `disconnected` |
@@ -54,12 +54,6 @@ Each connected customer = one Chromium process. Plan memory accordingly (~150-30
 
 ## Session Management
 
-We need to have set of questioner for customer about how many invoices they generate, payment links and expect appointment booking from website?
-
-NO bulk message will be possible with this method. They need to create own boardcasting channel in whatsapp or use status.
-
-Compare the market costing & expense report.
-
 ### Authentication Strategy: LocalAuth
 
 We use `LocalAuth` which stores session data on the local filesystem under `.wwebjs_auth/session-{clientId}/`. This directory contains the Chromium user profile with WhatsApp's authentication tokens.
@@ -73,11 +67,18 @@ Tradeoffs:
 - Disk usage grows with number of customers (~50-100MB per session)
 - For multi-server deployment, consider migrating to `RemoteAuth` with S3/Redis storage
 
+### Phone Number Validation
+
+When initiating a connection, you can pass an `allowedPhone` number. After the QR is scanned and the session becomes ready, the service checks `client.info.wid.user` (the authenticated phone number) against the stored allowed number. If it doesn't match, the session is immediately logged out and destroyed.
+
+This prevents unauthorized numbers from linking to a customer's account.
+
 ### Session State Machine
 
 ```
 [No Session] → POST /connect → [awaiting_scan]
-[awaiting_scan] → QR scanned → [connected] → idle timer starts
+[awaiting_scan] → QR scanned → phone validated → [connected] → idle timer starts
+[awaiting_scan] → QR scanned → phone mismatch → [disconnected]
 [awaiting_scan] → Timeout (90s) → [disconnected]
 [connected] → Message sent → idle timer resets
 [connected] → Idle timeout (10 min) → [connected, browser sleeping]
@@ -94,13 +95,11 @@ To avoid keeping Chromium processes running 24/7 for every connected customer, t
 1. After a customer connects (QR scanned) or sends a message, a `setTimeout` timer starts (default: 10 minutes)
 2. Each message sent resets the timer
 3. When the timer fires, the Chromium process is destroyed — freeing ~150-300MB RAM
-4. The session stays valid: status remains `connected` in Redis, session files stay on disk (`.wwebjs_auth/`)
+4. The session stays valid: status remains `connected` in Redis, session files stay on disk
 5. When the next message needs to be sent, `ensureClientReady()` re-launches Chromium from the saved session — no QR scan needed, takes ~5-10 seconds
 6. The idle timer restarts after the wake-up
 
 This means RAM usage scales with *concurrently active* customers, not total connected customers.
-
-**Performance note**: `setTimeout` in Node.js is essentially free. It doesn't "tick" — it just registers a callback in the event loop's timer queue. Even 10,000 pending timers have negligible CPU/memory overhead. It's just a sorted list of timestamps internally.
 
 **Configuration**: Set `SESSION_IDLE_TIMEOUT_MS` in `.env` (default: 600000 = 10 minutes). Set to `0` to disable.
 
@@ -129,7 +128,8 @@ All state is stored in Redis. The microservice is stateless except for the in-me
 |---|---|---|---|
 | `whatsapp:status:{customerId}` | String | None | Connection status: `connected`, `disconnected`, `awaiting_scan` |
 | `whatsapp:qr:{customerId}` | String | 120s | Raw QR code data (auto-expires) |
-| `whatsapp:session:{customerId}` | String/Binary | 30 days | Session credentials (used by RedisAuthStore, reserved for future RemoteAuth) |
+| `whatsapp:allowed_phone:{customerId}` | String | None | Allowed phone number for this customer (validated on QR scan) |
+| `whatsapp:session:{customerId}` | String/Binary | 30 days | Session credentials (reserved for future RemoteAuth) |
 | `whatsapp:history:{customerId}` | List (JSON strings) | None | Message history, newest first (LPUSH) |
 | `bull:whatsapp-messages:*` | BullMQ internal | Per config | Message queue jobs |
 | `bull:whatsapp-messages-dlq:*` | BullMQ internal | None | Dead-letter queue for failed messages |
@@ -139,6 +139,7 @@ All state is stored in Redis. The microservice is stateless except for the in-me
 When `POST /disconnect/:customerId` is called, ALL Redis keys for that customer are deleted:
 - `whatsapp:status:{customerId}`
 - `whatsapp:qr:{customerId}`
+- `whatsapp:allowed_phone:{customerId}`
 - `whatsapp:session:{customerId}`
 
 The customer effectively ceases to exist in the system. Message history is preserved.
@@ -164,7 +165,7 @@ POST /messaging/send
   → Return 202 with job ID
 
 BullMQ Worker picks up job:
-  → Get Client instance from in-memory map
+  → ensureClientReady() — wakes sleeping browser if needed
   → Format phone: "{phone}@c.us"
   → If mediaUrl: download media via MessageMedia.fromUrl()
   → client.sendMessage(chatId, content)
@@ -183,23 +184,8 @@ On failure:
 {
   attempts: 3,
   backoff: { type: 'exponential', delay: 5000 },
-  removeOnComplete: true,   // Clean up successful jobs
-  removeOnFail: false,       // Keep failed jobs for DLQ inspection
-}
-```
-
-### Dead-Letter Queue Entry
-
-```json
-{
-  "customerId": "cust_123",
-  "phone": "911234567890",
-  "message": "Your invoice is ready.",
-  "mediaUrl": null,
-  "failedAt": "2026-04-25T10:35:00.000Z",
-  "failureReason": "Client disconnected during send",
-  "attempts": 3,
-  "originalJobId": "job_def456"
+  removeOnComplete: true,
+  removeOnFail: false,
 }
 ```
 
@@ -226,42 +212,11 @@ On failure:
 - Strips unknown properties from request bodies
 - Returns 400 with descriptive errors for invalid input
 
-### Global Exception Filter
-
-All unhandled exceptions return a consistent JSON format:
-
-```json
-{
-  "statusCode": 500,
-  "message": "Internal server error",
-  "timestamp": "2026-04-25T10:30:00.000Z",
-  "path": "/whatsapp/connect/cust_123"
-}
-```
-
 ---
 
 ## Resource Usage and Scaling
 
-### Memory
-
-Each WhatsApp session keeps a headless Chromium browser running — but thanks to the idle timeout, browsers are only alive for customers who are actively sending messages.
-
-- **Per active customer** (browser awake): ~150-300MB RAM
-- **Per idle customer** (browser sleeping): ~0MB RAM (just a Redis key + session files on disk)
-- **During QR generation**: ~150-300MB (Chromium running)
-- **During message sending**: Negligible extra on top of the browser process
-- **Wake-up from sleep**: ~5-10 seconds, then ~150-300MB until idle timeout
-
-**Without idle timeout** (all browsers running 24/7):
-
-| Connected customers | Estimated RAM |
-|---|---|
-| 10 | 1.5-3GB |
-| 50 | 7.5-15GB |
-| 100 | 15-30GB |
-
-**With idle timeout** (only active customers use RAM):
+### Memory (with idle timeout enabled)
 
 | Total connected | Concurrently active | Estimated RAM |
 |---|---|---|
@@ -269,34 +224,26 @@ Each WhatsApp session keeps a headless Chromium browser running — but thanks t
 | 100 | 10 | 1.5-3GB |
 | 500 | 20 | 3-6GB |
 
-The idle timeout makes it practical to support hundreds of connected customers on a single t3.large (8GB) instance, as long as only a fraction are actively sending at any given time.
-
-### CPU
-
-- Chromium is CPU-intensive during initialization (~5-10s of high CPU)
-- Once connected, CPU usage drops to near-zero (WebSocket idle)
-- Message sending causes brief CPU spikes
-
-### Disk
-
-- `.wwebjs_auth/` grows ~50-100MB per customer session
-- Ensure adequate disk space on EC2
-- Consider periodic cleanup of disconnected session directories
-
-### Recommended EC2 Sizing (with idle timeout enabled)
+### Recommended EC2 Sizing
 
 | Total customers | Concurrently active | Instance Type | RAM |
 |---|---|---|---|
 | 1-20 | 1-5 | t3.medium | 4GB |
 | 20-100 | 5-15 | t3.large | 8GB |
 | 100-500 | 15-30 | t3.xlarge | 16GB |
-| 500+ | 30+ | Multiple instances with sharding | |
-
-These estimates assume idle timeout is enabled (default). Without it, size based on total connected customers instead.
 
 ---
 
-## Deployment Considerations
+## Deployment
+
+### Environment Variables
+
+| Variable | Required | Default | Description |
+|---|---|---|---|
+| `PORT` | No | 3001 | Server port |
+| `REDIS_URL` | Yes | — | Redis connection URI |
+| `API_KEY` | Yes | — | Min 16 characters, used for x-api-key auth |
+| `SESSION_IDLE_TIMEOUT_MS` | No | 600000 | Idle timeout in ms. Set to 0 to disable. |
 
 ### PM2 Process Management
 
@@ -305,67 +252,36 @@ The `ecosystem.config.js` configures:
 - `max_restarts: 10` — Prevents restart loops
 - Use `pm2 startup` + `pm2 save` for EC2 reboot persistence
 
-### Redis Requirements
-
-- Redis must be running and accessible via `REDIS_URL`
-- Recommended: Redis 6+ with persistence enabled (RDB or AOF)
-- For production: use Amazon ElastiCache or a managed Redis service
-- BullMQ requires Redis 5.0+ (for Streams support)
-
 ### Filesystem Persistence
 
 The `.wwebjs_auth/` directory must persist across deployments:
 - On EC2: stored on the instance's EBS volume (survives reboots)
 - On Docker: mount as a volume (`-v /data/wwebjs_auth:/app/.wwebjs_auth`)
-- On Kubernetes: use a PersistentVolumeClaim
-
-### Environment Variables
-
-| Variable | Required | Default | Validation |
-|---|---|---|---|
-| `PORT` | No | 3001 | Must be a number |
-| `REDIS_URL` | Yes | — | Must be a valid URI |
-| `API_KEY` | Yes | — | Must be at least 16 characters |
-| `SESSION_IDLE_TIMEOUT_MS` | No | 600000 (10 min) | Must be a number. Set to 0 to disable. |
-
-App fails to start with a descriptive error if required validation fails.
 
 ---
 
-## Known Limitations and Risks
+## Known Limitations
 
 ### WhatsApp Terms of Service
 
-whatsapp-web.js is an unofficial library. Using it may violate WhatsApp's Terms of Service. Risks include:
+whatsapp-web.js is an unofficial library. Risks include:
 - Account bans (temporary or permanent)
 - Rate limiting by WhatsApp
 - Breaking changes when WhatsApp updates their web client
 
 Mitigations:
 - Don't send bulk/spam messages
-- Respect rate limits (no more than ~10-15 messages per minute per number)
-- Keep message content legitimate and user-initiated
+- Respect rate limits (~10-15 messages per minute per number)
 - Monitor for ban signals (auth_failure events, unexpected disconnects)
 
 ### Single-Server Limitation
 
-Sessions are tied to the local filesystem (`.wwebjs_auth/`). This means:
-- No horizontal scaling — each customer's session lives on one server
-- Server migration requires copying the `.wwebjs_auth/` directory
-- For multi-server setups, consider implementing `RemoteAuth` with S3 storage
-
-### Chromium Stability
-
-- Chromium processes can crash or leak memory over time
-- The `disconnected` event handler cleans up, but orphaned processes may remain
-- Consider periodic health checks and process cleanup
-- PM2's `autorestart` handles process-level crashes
+Sessions are tied to the local filesystem. No horizontal scaling — each customer's session lives on one server.
 
 ### QR Code Timing
 
 - QR codes expire every ~20 seconds
-- Our Redis TTL is 2 minutes (stores the latest QR)
-- If the frontend polls too slowly, the QR may have rotated
+- Redis TTL is 2 minutes (stores the latest QR)
 - WhatsApp stops generating QRs after ~5 rotations (~100 seconds)
 
 ### Media Sending
@@ -373,55 +289,3 @@ Sessions are tied to the local filesystem (`.wwebjs_auth/`). This means:
 - `MessageMedia.fromUrl()` downloads the file to memory before sending
 - Large files (>16MB) may fail or cause memory spikes
 - Supported types: images, documents, videos (same as WhatsApp Web)
-- No progress tracking for media uploads
-
----
-
-## Monitoring and Debugging
-
-### Useful Log Messages
-
-| Log | Meaning |
-|---|---|
-| `Session idle timeout: Xs` | Idle timeout configured at startup |
-| `Found N connected session(s)... lazy restore` | Sessions found in Redis, will wake on demand |
-| `QR code generated for customer X` | Chromium is up, WhatsApp sent a QR |
-| `Customer X connected successfully` | QR was scanned, session is active |
-| `Idle timeout reached for customer X — sleeping browser` | Browser destroyed to save RAM, session still valid |
-| `Waking up sleeping session for customer X` | Browser re-launching for a message send |
-| `Session woken up for customer X` | Browser ready after wake-up |
-| `Customer X disconnected: Y` | Session ended (phone offline, unlinked, etc.) |
-| `Background client launch failed for X` | Chromium failed to start |
-| `QR generation timed out for X` | No QR received within 90 seconds |
-| `Auth failure for X` | Stored session credentials are invalid |
-| `Message job X delivered successfully` | Message sent via WhatsApp |
-| `Message job X exhausted all retries` | Message failed permanently, moved to DLQ |
-
-### Redis Inspection
-
-```bash
-# Check a customer's status
-redis-cli GET whatsapp:status:cust_123
-
-# Check if QR exists
-redis-cli GET whatsapp:qr:cust_123
-
-# Check message history length
-redis-cli LLEN whatsapp:history:cust_123
-
-# List all connected customers
-redis-cli KEYS whatsapp:status:*
-
-# Inspect DLQ
-redis-cli KEYS bull:whatsapp-messages-dlq:*
-```
-
-### Health Check
-
-A quick way to verify the service is running:
-
-```bash
-curl http://localhost:3001/whatsapp/status/nonexistent \
-  -H "x-api-key: YOUR_KEY"
-# Should return 404 — means the service is up and auth works
-```

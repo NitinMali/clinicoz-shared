@@ -4,6 +4,7 @@ export const REDIS_KEYS = {
   STATUS: (customerId: string) => `whatsapp:status:${customerId}`,
   QR: (customerId: string) => `whatsapp:qr:${customerId}`,
   HISTORY: (customerId: string) => `whatsapp:history:${customerId}`,
+  ALLOWED_PHONE: (customerId: string) => `whatsapp:allowed_phone:${customerId}`,
   STATUS_PATTERN: 'whatsapp:status:*',
 } as const;
 

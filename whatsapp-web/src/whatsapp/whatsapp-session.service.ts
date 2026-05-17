@@ -11,6 +11,8 @@ import { ConfigService } from '@nestjs/config';
 import { Client, LocalAuth } from 'whatsapp-web.js';
 import Redis from 'ioredis';
 import * as qrcode from 'qrcode';
+import * as fs from 'fs';
+import * as path from 'path';
 import { ConnectionStatus } from './whatsapp.interfaces';
 import { REDIS_KEYS, QR_TTL_SECONDS } from '../shared/constants';
 
@@ -130,15 +132,32 @@ export class WhatsAppSessionService implements OnModuleInit, OnModuleDestroy {
       this.resetIdleTimer(customerId);
       return client;
     } catch (e) {
-      // If browser lock conflict, wait briefly and retry once
+      // If browser lock conflict, kill orphaned Chromium and retry
       if (e.message?.includes('already running')) {
-        this.logger.warn(`Browser lock conflict for ${customerId}, retrying in 3s...`);
-        await new Promise((r) => setTimeout(r, 3000));
+        this.logger.warn(`Browser lock conflict for ${customerId}, killing orphan and retrying...`);
+        await this.killOrphanedBrowser(customerId);
+        await new Promise((r) => setTimeout(r, 2000));
         const retryClient = await this.wakeUpClient(customerId);
         this.resetIdleTimer(customerId);
         return retryClient;
       }
       throw e;
+    }
+  }
+
+  private async killOrphanedBrowser(customerId: string): Promise<void> {
+    const { execSync } = require('child_process');
+    const sessionDir = path.join(process.cwd(), '.wwebjs_auth', `session-${customerId}`);
+    try {
+      // Find and kill any Chromium process using this session's data dir
+      execSync(`pkill -f "${sessionDir}" || true`, { stdio: 'pipe' });
+      // Remove the SingletonLock file if it exists
+      const lockFile = path.join(sessionDir, 'SingletonLock');
+      if (fs.existsSync(lockFile)) {
+        fs.unlinkSync(lockFile);
+      }
+    } catch (e) {
+      this.logger.warn(`Could not clean orphaned browser for ${customerId}: ${e.message}`);
     }
   }
 

@@ -1,0 +1,135 @@
+name: Deploy WhatsApp Microservice
+
+# ─── Required GitHub Secrets ─────────────────────────────────────────────────
+# EC2_PRIVATE_KEY        - Private SSH key for EC2 access (PEM format)
+#
+# ─── Optional: If you add AWS operations later ───────────────────────────────
+# AWS_ACCESS_KEY_ID      - AWS access key
+# AWS_SECRET_ACCESS_KEY  - AWS secret key
+# ──────────────────────────────────────────────────────────────────────────────
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'whatsapp-web/**'
+
+env:
+  EC2_HOST: ec2-3-111-159-251.ap-south-1.compute.amazonaws.com
+  EC2_USER: ubuntu
+  APP_DIR: /home/ubuntu/whatsapp-web
+  APP_NAME: whatsapp-microservice
+  APP_SOURCE: ./whatsapp-web
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: whatsapp-web
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 18
+          cache: npm
+          cache-dependency-path: whatsapp-web/package-lock.json
+
+      - name: Install and build
+        run: |
+          npm ci
+          npm run build:prod
+
+      # ── Ensure EC2 has Chromium dependencies ──
+      - name: Setup EC2 dependencies
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ env.EC2_HOST }}
+          username: ${{ env.EC2_USER }}
+          key: ${{ secrets.EC2_PRIVATE_KEY }}
+          script: |
+            set -e
+
+            # Chromium dependencies for puppeteer/whatsapp-web.js
+            if ! dpkg -s libgbm1 &> /dev/null 2>&1; then
+              echo "Installing Chromium dependencies..."
+              sudo apt-get update && sudo apt-get install -y \
+                libgbm1 libasound2 libatk1.0-0 libatk-bridge2.0-0 \
+                libcups2 libdbus-1-3 libdrm2 libgtk-3-0 libnspr4 \
+                libnss3 libx11-xcb1 libxcomposite1 libxdamage1 \
+                libxrandr2 xdg-utils libxss1 fonts-liberation
+            fi
+
+            # Create app directory
+            mkdir -p ${{ env.APP_DIR }}
+
+            echo "EC2 ready: Node $(node -v) | PM2 $(pm2 -v)"
+
+      # ── Copy built files to EC2 ──
+      - name: Copy dist
+        uses: burnett01/rsync-deployments@5.1
+        with:
+          switches: -avzr --delete
+          path: ${{ env.APP_SOURCE }}/dist
+          remote_path: ${{ env.APP_DIR }}/
+          remote_host: ${{ env.EC2_HOST }}
+          remote_user: ${{ env.EC2_USER }}
+          remote_key: ${{ secrets.EC2_PRIVATE_KEY }}
+
+      - name: Copy package files
+        uses: burnett01/rsync-deployments@5.1
+        with:
+          switches: -avzr
+          path: ${{ env.APP_SOURCE }}/package.json
+          remote_path: ${{ env.APP_DIR }}/
+          remote_host: ${{ env.EC2_HOST }}
+          remote_user: ${{ env.EC2_USER }}
+          remote_key: ${{ secrets.EC2_PRIVATE_KEY }}
+
+      - name: Copy package-lock.json
+        uses: burnett01/rsync-deployments@5.1
+        with:
+          switches: -avzr
+          path: ${{ env.APP_SOURCE }}/package-lock.json
+          remote_path: ${{ env.APP_DIR }}/
+          remote_host: ${{ env.EC2_HOST }}
+          remote_user: ${{ env.EC2_USER }}
+          remote_key: ${{ secrets.EC2_PRIVATE_KEY }}
+
+      - name: Copy .env
+        uses: burnett01/rsync-deployments@5.1
+        with:
+          switches: -avzr
+          path: ${{ env.APP_SOURCE }}/.env
+          remote_path: ${{ env.APP_DIR }}/
+          remote_host: ${{ env.EC2_HOST }}
+          remote_user: ${{ env.EC2_USER }}
+          remote_key: ${{ secrets.EC2_PRIVATE_KEY }}
+
+      - name: Copy ecosystem.config.js
+        uses: burnett01/rsync-deployments@5.1
+        with:
+          switches: -avzr
+          path: ${{ env.APP_SOURCE }}/ecosystem.config.js
+          remote_path: ${{ env.APP_DIR }}/
+          remote_host: ${{ env.EC2_HOST }}
+          remote_user: ${{ env.EC2_USER }}
+          remote_key: ${{ secrets.EC2_PRIVATE_KEY }}
+
+      # ── Install prod deps and restart ──
+      - name: Install and restart
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ env.EC2_HOST }}
+          username: ${{ env.EC2_USER }}
+          key: ${{ secrets.EC2_PRIVATE_KEY }}
+          script: |
+            set -e
+            cd ${{ env.APP_DIR }}
+            npm ci --omit=dev
+            pm2 restart ${{ env.APP_NAME }} || pm2 start ecosystem.config.js
+            pm2 save
+            echo "Deploy complete: $(date)"

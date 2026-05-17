@@ -9,38 +9,23 @@ export const handler = async (event: any) => {
       ? JSON.parse(event.body)
       : event;
 
-    // New flexible API — template + data + optional S3
-    if (body.template) {
-      const result = await service.generate(body);
+    const result = await service.generate(body);
 
-      if (result.s3Url) {
-        return {
-          statusCode: 200,
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ filename: result.filename, s3Url: result.s3Url }),
-        };
-      }
-
+    if (result.s3Url) {
       return {
         statusCode: 200,
-        headers: {
-          'Content-Type': 'application/pdf',
-          'Content-Disposition': `attachment; filename="${result.filename}"`,
-        },
-        body: result.blob,
-        isBase64Encoded: true,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ filename: result.filename, s3Url: result.s3Url }),
       };
     }
 
-    // Legacy API — PdfDocumentDto
-    const result = await service.generatePdf(body);
     return {
       statusCode: 200,
       headers: {
         'Content-Type': 'application/pdf',
         'Content-Disposition': `attachment; filename="${result.filename}"`,
       },
-      body: result.buffer.toString('base64'),
+      body: result.blob,
       isBase64Encoded: true,
     };
   } catch (err: any) {

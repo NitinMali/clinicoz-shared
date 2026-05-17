@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 10pt; color: #222; background: #fff; }
+    .page { padding: 40px 44px; max-width: 760px; margin: 0 auto; }
+
+    /* ── Top header ── */
+    .top-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 28px; }
+    .logo { font-size: 22pt; font-weight: 700; color: #222; letter-spacing: -0.5px; }
+    .logo span { color: #7c3aed; }
+    .invoice-title { text-align: right; }
+    .invoice-title h1 { font-size: 20pt; font-weight: 400; color: #222; }
+    .invoice-title .invoice-number { font-size: 9pt; color: #555; margin-top: 2px; }
+
+    /* ── Bill-to box ── */
+    .bill-to-box { background: #f7f7f7; border: 1px solid #e8e8e8; border-radius: 4px; padding: 14px 18px; margin-bottom: 22px; font-size: 9.5pt; line-height: 1.7; color: #333; display: flex; justify-content: space-between; align-items: flex-start; }
+    .bill-to-box strong { font-weight: 600; }
+    .bill-to-box .invoice-date { font-size: 9.5pt; color: #555; text-align: right; }
+
+    /* ── Section heading ── */
+    .section-label { font-size: 9.5pt; color: #333; margin-bottom: 8px; }
+
+    /* ── Line-items table ── */
+    table { width: 100%; border-collapse: collapse; margin-bottom: 0; }
+    thead tr { background: #f0f0f0; }
+    th { font-size: 8.5pt; font-weight: 600; color: #444; padding: 8px 10px; text-align: left; border: 1px solid #ddd; }
+    td { font-size: 9pt; color: #333; padding: 8px 10px; border: 1px solid #e8e8e8; vertical-align: middle; }
+    th.right, td.right { text-align: right; }
+    th.center, td.center { text-align: center; }
+
+    /* summary rows (tax / grand total) */
+    .summary-row td { border-left: none; border-right: none; border-top: none; border-bottom: 1px solid #eee; padding: 6px 10px; }
+    .summary-row td.label { text-align: left; color: #555; font-size: 9pt; padding-left: 0; }
+    .summary-row td.value { text-align: right; font-size: 9pt; }
+    .summary-row.grand-total td { font-weight: 700; font-size: 10pt; border-top: 2px solid #bbb; border-bottom: none; color: #111; }
+    .summary-wrap { display: flex; justify-content: flex-end; margin-top: 2px; }
+    .summary-table { width: 280px; border-collapse: collapse; }
+
+    /* ── Thank-you ── */
+    .thank-you { font-size: 10pt; color: #333; margin-top: 28px; margin-bottom: 24px; }
+
+    /* ── Footer address ── */
+    .footer-address { font-size: 8.5pt; color: #555; line-height: 1.8; border-top: 1px solid #e8e8e8; padding-top: 16px; }
+    .footer-address .company-name { font-weight: 700; color: #222; font-size: 9.5pt; margin-bottom: 2px; }
+  </style>
+</head>
+<body>
+<div class="page">
+
+  <!-- Top header: logo + Invoice title -->
+  <div class="top-header">
+    <div class="logo">clinic<span>o</span>z</div>
+    <div class="invoice-title">
+      <h1>Appointment Invoice</h1>
+      <div class="invoice-number">{{invoiceNumber}}</div>
+    </div>
+  </div>
+
+  <!-- Entity name and location -->
+  <div style="margin-bottom: 22px;">
+    <div style="font-size: 11pt; font-weight: 600; color: #222;">{{header.entityName}}</div>
+    <div style="font-size: 9.5pt; color: #555;">{{header.state}}, {{header.city}}</div>
+  </div>
+
+  <!-- Bill To box -->
+  <div class="bill-to-box">
+    <div>
+      <div><strong>Invoice to: {{billTo.name}}</strong></div>
+      <div>Contact: {{billTo.email}}{{#if billTo.phone}} / {{billTo.phone}}{{/if}}</div>
+      <div>GSTIN: {{#if billTo.gstin}}{{billTo.gstin}}{{else}}-{{/if}}</div>
+    </div>
+    <div class="invoice-date">{{invoiceDate}}</div>
+  </div>
+
+  <!-- Appointment details table -->
+  <div class="section-label">Appointment details</div>
+  <table>
+    <thead>
+      <tr>
+        <th style="width:60%">Doctor Name</th>
+        <th class="right" style="width:40%">Consultation Fee (incl. taxes)</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>{{doctorName}}</td>
+        <td class="right">{{consultationFee}}</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <!-- Summary: consultation fee, convenience fee, grand total -->
+  <div class="summary-wrap">
+    <table class="summary-table">
+      {{#each summaryItems}}
+      <tr class="summary-row{{#if this.isGrandTotal}} grand-total{{/if}}">
+        <td class="label">{{this.label}}{{#if this.percentage}} ({{this.percentage}}%){{/if}}</td>
+        <td class="value" style="white-space: nowrap;">Rs {{this.amount}}</td>
+      </tr>
+      {{/each}}
+    </table>
+  </div>
+
+  <!-- Thank you message -->
+  <div class="thank-you">{{#if thankYouMessage}}{{thankYouMessage}}{{else}}Thank you for your payment{{/if}}</div>
+
+  <!-- Footer -->
+  <div class="footer-address">
+    <div>care@clinicoz.com</div>
+  </div>
+
+</div>
+</body>
+</html>

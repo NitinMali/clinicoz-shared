@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; }
+    body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 10pt; color: #222; background: #fff; }
+    .page { padding: 40px 44px; max-width: 760px; margin: 0 auto; min-height: 100vh; display: flex; flex-direction: column; }
+    .page-bottom { margin-top: auto; }
+   .invoice-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 30px; }
+    .invoice-header .company h1 { font-size: 22pt; color: #111; }
+    .invoice-header .company p { font-size: 10pt; color: #555; margin-top: 4px; }
+    .invoice-header .invoice-meta { text-align: right; }
+    .invoice-header .invoice-meta h2 { font-size: 16pt; color: #333; margin-bottom: 8px; }
+    .invoice-header .invoice-meta p { font-size: 10pt; color: #555; line-height: 1.6; }
+
+    .addresses { display: grid; grid-template-columns: 1fr 1fr; gap: 30px; margin-bottom: 30px; }
+    .addresses .block label { font-size: 9pt; text-transform: uppercase; color: #888; letter-spacing: 0.5px; }
+    .addresses .block p { font-size: 10pt; line-height: 1.6; margin-top: 4px; }
+
+    /* ── Top header ── */
+    .top-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 28px; }
+    .logo { font-size: 22pt; font-weight: 700; color: #222; letter-spacing: -0.5px; }
+    .logo span { color: #7c3aed; }
+    .invoice-title { text-align: right; }
+    .invoice-title h1 { font-size: 20pt; font-weight: 400; color: #222; }
+    .invoice-title .invoice-number { font-size: 9pt; color: #555; margin-top: 2px; }
+
+    /* ── Bill-to box ── */
+    .bill-to-box { background: #f7f7f7; border: 1px solid #e8e8e8; border-radius: 4px; padding: 14px 18px; margin-bottom: 22px; font-size: 9.5pt; line-height: 1.7; color: #333; }
+    .bill-to-box strong { font-weight: 600; }
+
+    /* ── Section heading ── */
+    .section-label { font-size: 9.5pt; color: #333; margin-bottom: 8px; }
+
+    /* ── Line-items table ── */
+    table { width: 100%; border-collapse: collapse; margin-bottom: 0; table-layout: fixed; }
+    thead tr { background: #f0f0f0; }
+    th { font-size: 8.5pt; font-weight: 600; color: #444; padding: 6px 8px; text-align: left; border: 1px solid #ddd; word-wrap: break-word; overflow-wrap: break-word; }
+    td { font-size: 9pt; color: #333; padding: 6px 8px; border: 1px solid #e8e8e8; vertical-align: middle; word-wrap: break-word; overflow-wrap: break-word; }
+    th.right, td.right { text-align: right; }
+    th.center, td.center { text-align: center; }
+
+    /* summary rows (tax / grand total) */
+    .summary-row td { border-left: none; border-right: none; border-top: none; border-bottom: 1px solid #eee; padding: 6px 10px; }
+    .summary-row td.label { text-align: left; color: #555; font-size: 9pt; padding-left: 0; }
+    .summary-row td.value { text-align: right; font-size: 9pt; }
+    .summary-row.grand-total td { font-weight: 700; font-size: 10pt; border-top: 2px solid #bbb; border-bottom: none; color: #111; }
+    .summary-wrap { display: flex; justify-content: flex-end; margin-top: 2px; }
+    .summary-table { width: 280px; border-collapse: collapse; }
+
+    /* ── Thank-you ── */
+    .thank-you { font-size: 10pt; color: #333; margin-top: 5px; margin-bottom: 2px; }
+
+    /* ── Footer address ── */
+    .footer-address { font-size: 8.5pt; color: #555; line-height: 1.8; border-top: 1px solid #e8e8e8; padding-top: 16px; }
+    .footer-address .company-name { font-weight: 700; color: #222; font-size: 9.5pt; margin-bottom: 2px; }
+
+    /* ── Signature & QR ── */
+    .signature-section { margin-top: 30px; display: flex; justify-content: space-between; align-items: flex-start; }
+    .signature-img { max-width: 200px; max-height: 80px; object-fit: contain; }
+    .qr-img { max-width: 120px; max-height: 120px; object-fit: contain; }
+
+    /* ── Disclaimer ── */
+    .disclaimer { font-size: 8.5pt; color: #666; margin-top: 2px; padding: 12px; background: #f9f9f9; border-left: 3px solid #7c3aed; }
+
+    /* ── Footer text ── */
+    .footer-text { font-size: 8.5pt; color: #555; text-align: center; margin-top: 20px; padding-top: 12px; border-top: 1px solid #e8e8e8; }
+  </style>
+</head>
+<body>
+<div class="page">
+
+  <!-- Top header: Invoice title (logo handled by native header) -->
+  {{!-- <div class="top-header">
+    <div class="logo">
+      {{#if logoUrl}}
+      <img src="{{logoUrl}}" alt="Logo" style="max-height: 40px; object-fit: contain;" />
+      {{else}}
+      clinic<span>o</span>z
+      {{/if}}
+    </div>
+    <div class="invoice-title">
+      <h1>Invoice</h1>
+      <div class="invoice-number">{{invoiceNumber}}</div>
+    </div>
+  </div> --}}
+
+  <!-- Bill To box -->
+  <div class="bill-to-box" style="display:flex;justify-content:space-between;">
+    <div>
+      <div><strong>Invoice to: {{billTo.name}}</strong></div>
+      <div>Contact: {{billTo.email}}{{#if billTo.phone}} / {{billTo.phone}}{{/if}}</div>
+      <div>GSTIN: {{#if billTo.gstin}}{{billTo.gstin}}{{else}}-{{/if}}</div>
+    </div>
+    <div style="text-align:right;">
+      {{#if apptRef}}
+      <div><strong>Appointment Ref.</strong></div>
+      <div>{{apptRef}}</div>
+      {{/if}}
+      {{#if apptDate}}
+      <div style="margin-top:4px;"><strong>Date</strong></div>
+      <div>{{apptDate}}</div>
+      {{/if}}
+    </div>
+  </div>
+
+  <!-- Invoice details table -->
+  <div class="section-label">Invoice details</div>
+  <table>
+    <thead>
+      <tr>
+        <th style="width:25%">Particularrroop</th>
+        <th style="width:12%">Type</th>
+        <th style="width:10%">Batch</th>
+        <th style="width:12%">Category</th>
+        <th class="right" style="width:10%">Amt</th>
+        <th class="center" style="width:6%">Qty</th>
+        <th class="center" style="width:8%">Tax</th>
+        <th class="center" style="width:8%">Disc</th>
+        <th class="right" style="width:9%">Total</th>
+      </tr>
+    </thead>
+    <tbody>
+      {{#each lineItems}}
+      <tr{{#if this.isChild}} style="background-color: #fafafa;"{{/if}}>
+        <td{{#if this.isChild}} style="padding-left: 30px;"{{/if}}>{{this.name}}</td>
+        <td>{{this.type}}</td>
+        <td>{{this.batch}}</td>
+        <td>{{this.category}}</td>
+        <td class="right">{{this.amount}}</td>
+        <td class="center">{{this.quantity}}</td>
+        <td class="center">{{this.tax}}</td>
+        <td class="center">{{this.discount}}</td>
+        <td class="right">{{this.total}}</td>
+      </tr>
+      {{/each}}
+    </tbody>
+  </table>
+
+  <!-- Summary: subtotal, taxes, grand total -->
+  <div class="summary-wrap">
+    <table class="summary-table">
+      {{#each summaryItems}}
+      {{#unless this.isSplitPayment}}
+      <tr class="summary-row{{#if this.isGrandTotal}} grand-total{{/if}}">
+        <td class="label">{{this.label}}{{#if this.percentage}} ({{this.percentage}}%){{/if}}</td>
+        <td class="value" style="white-space: nowrap;">Rs {{this.amount}}</td>
+      </tr>
+      {{else}}
+      {{#unless this.isTotalProcessed}}
+      <tr class="summary-row">
+        <td class="label">{{this.label}}{{#if this.percentage}} ({{this.percentage}}%){{/if}}</td>
+        <td class="value" style="white-space: nowrap;">Rs {{this.amount}}</td>
+      </tr>
+      {{else}}
+      <tr class="summary-row grand-total">
+        <td class="label">{{this.label}}</td>
+        <td class="value" style="white-space: nowrap;">Rs {{this.amount}}</td>
+      </tr>
+      {{/unless}}
+      {{/unless}}
+      {{/each}}
+    </table>
+  </div>
+
+  <!-- Remark, Signature, and QR Code — same row -->
+  {{#if qr.show}}
+  <!-- 3-column layout when QR is present: Remark (left), Signature (middle), QR (right) -->
+  <table style="width:100%;margin-top:10px;border:none;">
+    <tr>
+      <td style="vertical-align:top;width:33%;font-size:9.5pt;color:#333;border:none;">
+        {{#if remark}}
+        <div style="font-weight:600;margin-bottom:4px;">Remark</div>
+        <div>{{remark}}</div>
+        {{/if}}
+      </td>
+      <td style="vertical-align:top;width:33%;text-align:center;border:none;">
+        {{#if showSignature}}
+          {{#if signature}}
+            <div style="font-size:9pt;color:#555;margin-bottom:8px;">Signature</div>
+            <img src="{{signature}}" alt="Signature" class="signature-img" style="margin:0 auto;" />
+          {{else}}
+            <div style="font-size:10pt;color:#333;margin-top:30px;">Signature</div>
+          {{/if}}
+        {{/if}}
+      </td>
+      <td style="vertical-align:top;width:33%;text-align:right;border:none;">
+        <div style="font-size:9pt;color:#555;margin-bottom:8px;">Scan to Pay</div>
+        <img src="{{qr.url}}" alt="QR Code" class="qr-img" style="margin:0 auto;" />
+      </td>
+    </tr>
+  </table>
+  {{else}}
+  <!-- 2-column layout when QR is not present: Remark (left), Signature (right) -->
+  <table style="width:100%;margin-top:10px;border:none;">
+    <tr>
+      <td style="vertical-align:top;width:60%;font-size:9.5pt;color:#333;border:none;">
+        {{#if remark}}
+        <div style="font-weight:600;margin-bottom:4px;">Remark</div>
+        <div>{{remark}}</div>
+        {{/if}}
+      </td>
+      <td style="vertical-align:top;width:40%;text-align:right;border:none;">
+        {{#if showSignature}}
+          {{#if signature}}
+            <div style="font-size:9pt;color:#555;margin-bottom:8px;">Signature</div>
+            <img src="{{signature}}" alt="Signature" class="signature-img" />
+          {{else}}
+            <div style="font-size:10pt;color:#333;margin-top:30px;">Signature</div>
+          {{/if}}
+        {{/if}}
+      </td>
+    </tr>
+  </table>
+  {{/if}}
+
+  <!-- Thank you message and Disclaimer - pushed to bottom near footer -->
+  <div class="page-bottom">
+    <div class="thank-you">{{#if thankYouMessage}}{{thankYouMessage}}{{else}}Thank you for your payment{{/if}}</div>
+
+    {{#if disclaimer}}
+    <div class="disclaimer">{{disclaimer}}</div>
+    {{/if}}
+  </div>
+
+  {{!-- <!-- Footer company address -->
+  <div class="footer-address">
+    <div class="company-name">{{company.name}}</div>
+    {{#if company.addressLine1}}<div>{{company.addressLine1}}</div>{{/if}}
+    {{#if company.addressLine2}}<div>{{company.addressLine2}}</div>{{/if}}
+    {{#if company.city}}<div>{{company.city}}</div>{{/if}}
+    {{#if company.country}}<div>{{company.country}}</div>{{/if}}
+    {{#if company.phone}}<div>Ph: {{company.phone}}</div>{{/if}}
+    {{#if company.email}}<div>Email: {{company.email}}</div>{{/if}}
+    {{#if company.gstin}}<div>GSTIN: {{company.gstin}}</div>{{/if}}
+  </div> --}}
+
+</div>
+</body>
+</html>

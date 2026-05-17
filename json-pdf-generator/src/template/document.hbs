@@ -24,6 +24,10 @@
     .doc-header .header-text h1 { font-size: 20pt; font-weight: 700; color: #111; line-height: 1.2; }
     .doc-header .header-text p  { font-size: 10pt; color: #555; margin-top: 4px; }
 
+    /* Full-width header image mode */
+    .doc-header--image { padding: 0; border-bottom: none; display: block; margin: 0 0 24px; }
+    .doc-header--image .header-full-image { width: 100%; height: auto; display: block; }
+
     /* ── Body ────────────────────────────────────────────── */
     .doc-body { padding: 0 40px; }
 
@@ -71,19 +75,27 @@
 <body>
 
   {{#if header}}
+  {{#unless header.showOnAllPages}}
+  {{#if header.imageUrl}}
+  <header class="doc-header doc-header--image">
+    <img src="{{{header.imageUrl}}}" alt="Header" class="header-full-image" />
+  </header>
+  {{else}}
   <header class="doc-header">
-    {{#if header.logoUrl}}<img src="{{header.logoUrl}}" alt="Logo" />{{/if}}
+    {{#if header.logoUrl}}<img src="{{{header.logoUrl}}}" alt="Logo"{{#if header.logoStyle}} style="{{header.logoStyle}}"{{/if}} />{{/if}}
     <div class="header-text">
-      {{#if header.title}}<h1>{{header.title}}</h1>{{/if}}
-      {{#if header.description}}<p>{{header.description}}</p>{{/if}}
+      {{#if header.title}}<h1>{{nl2br header.title}}</h1>{{/if}}
+      {{#if header.description}}<p>{{nl2br header.description}}</p>{{/if}}
     </div>
   </header>
+  {{/if}}
+  {{/unless}}
   {{/if}}
 
   <main class="doc-body">
     {{#each body}}
-    <section class="section">
-      <div class="section-title">{{this.title}}</div>
+    <section class="section"{{#if this.style}} style="{{this.style}}"{{/if}}>
+      <div class="section-title">{{nl2br this.title}}</div>
       {{> contentList content=this.content}}
     </section>
     {{/each}}
@@ -96,31 +108,37 @@
 {{#*inline "contentList"}}
   {{#each content}}
     {{#if (eq this.type "paragraph")}}
-      <p class="paragraph" style="text-align:{{#if this.align}}{{this.align}}{{else}}left{{/if}}">{{this.text}}</p>
+      <p class="paragraph" style="text-align:{{#if this.align}}{{this.align}}{{else}}left{{/if}};{{#if this.style}}{{this.style}}{{/if}}">{{nl2br this.text}}</p>
     {{/if}}
 
     {{#if (eq this.type "bulletList")}}
-      <ul class="bullet-list">
-        {{#each this.items}}<li>{{this}}</li>{{/each}}
+      <ul class="bullet-list"{{#if this.style}} style="{{this.style}}"{{/if}}>
+        {{#each this.items}}<li{{#if (cellStyle this)}} style="{{cellStyle this}}"{{/if}}>{{cellText this}}</li>{{/each}}
       </ul>
     {{/if}}
 
     {{#if (eq this.type "table")}}
-      <table class="data-table">
-        <thead><tr>{{#each this.headers}}<th>{{this}}</th>{{/each}}</tr></thead>
+      <table class="data-table"{{#if this.style}} style="{{this.style}}"{{/if}}>
+        <thead><tr>{{#each this.headers}}<th{{#if (cellStyle this)}} style="{{cellStyle this}}"{{/if}}>{{cellText this}}</th>{{/each}}</tr></thead>
         <tbody>
-          {{#each this.rows}}<tr>{{#each this}}<td>{{this}}</td>{{/each}}</tr>{{/each}}
+          {{#each this.rows}}<tr>{{#each this}}<td{{#if (cellStyle this)}} style="{{cellStyle this}}"{{/if}}>{{cellText this}}</td>{{/each}}</tr>{{/each}}
         </tbody>
       </table>
     {{/if}}
 
     {{#if (eq this.type "grid")}}
-      <div class="grid" style="grid-template-columns:{{gridColumns this.columns}};gap:{{#if this.gap}}{{this.gap}}{{else}}12px{{/if}};">
+      <div class="grid" style="grid-template-columns:{{gridColumns this.columns}};gap:{{#if this.gap}}{{this.gap}}{{else}}12px{{/if}};{{#if this.style}}{{this.style}}{{/if}}">
         {{#each this.columns}}
           <div class="grid-col" style="text-align:{{#if this.align}}{{this.align}}{{else}}left{{/if}};">
             {{> contentList content=this.content}}
           </div>
         {{/each}}
+      </div>
+    {{/if}}
+
+    {{#if (eq this.type "image")}}
+      <div class="content-image" style="text-align:{{#if this.align}}{{this.align}}{{else}}left{{/if}};margin-bottom:10px;">
+        <img src="{{{this.src}}}" style="width:{{#if this.width}}{{this.width}}{{else}}auto{{/if}};height:{{#if this.height}}{{this.height}}{{else}}auto{{/if}};max-width:100%;{{#if this.style}}{{this.style}}{{/if}}" />
       </div>
     {{/if}}
   {{/each}}

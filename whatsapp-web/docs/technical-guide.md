@@ -289,3 +289,99 @@ Sessions are tied to the local filesystem. No horizontal scaling — each custom
 - `MessageMedia.fromUrl()` downloads the file to memory before sending
 - Large files (>16MB) may fail or cause memory spikes
 - Supported types: images, documents, videos (same as WhatsApp Web)
+
+---
+
+## Debugging
+
+### PM2 Logs
+
+```bash
+# Live logs
+sudo pm2 logs whatsapp-microservice
+
+# Last 50 lines
+sudo pm2 logs whatsapp-microservice --lines 50
+```
+
+### Redis Inspection
+
+```bash
+# Check a customer's connection status
+redis-cli GET whatsapp:status:<customerId>
+
+# Check if QR exists (should have value when awaiting scan)
+redis-cli GET whatsapp:qr:<customerId>
+
+# Check allowed phone number for a customer
+redis-cli GET whatsapp:allowed_phone:<customerId>
+
+# Check message history
+redis-cli LRANGE whatsapp:history:<customerId> 0 10
+
+# List all connected customers
+redis-cli KEYS whatsapp:status:*
+
+# Inspect dead-letter queue (failed messages)
+redis-cli KEYS bull:whatsapp-messages-dlq:*
+
+# View a specific DLQ entry (shows failure reason, attempts, original message)
+redis-cli HGETALL bull:whatsapp-messages-dlq:<jobId>
+```
+
+### Common Issues
+
+**"The browser is already running" error in DLQ:**
+
+An orphaned Chromium process is holding the session lock. Fix:
+
+```bash
+sudo pkill -f chromium || true
+sudo pm2 restart whatsapp-microservice
+```
+
+Then reconnect the customer (POST `/connect`).
+
+**Session shows "connected" in Redis but messages fail:**
+
+The browser was sleeping (idle timeout) and wake-up failed. Check:
+
+```bash
+# Is the browser actually running?
+ps aux | grep chromium
+
+# Check if lock file exists
+ls -la /home/ubuntu/whatsapp-web/.wwebjs_auth/session-<customerId>/SingletonLock
+```
+
+If the lock file exists but no Chromium process is running, remove it:
+
+```bash
+rm /home/ubuntu/whatsapp-web/.wwebjs_auth/session-<customerId>/SingletonLock
+```
+
+**QR image stuck on "in-progress":**
+
+Chromium is still launching. Wait 10-15 seconds and refresh. If it persists:
+
+```bash
+# Check if Chromium started
+ps aux | grep chromium
+
+# Check logs for launch errors
+sudo pm2 logs whatsapp-microservice --lines 20
+```
+
+**After deploy, first message fails:**
+
+Expected — the old Chromium process was killed during deploy. The customer needs to reconnect (POST `/connect` + scan QR) or the next retry will succeed once the browser wakes up.
+
+### Health Check
+
+```bash
+# Quick service check (public, no auth needed)
+curl http://localhost:80/health
+
+# Detailed stats (requires x-api-key)
+curl http://localhost:80/whatsapp/admin/stats -H "x-api-key: YOUR_KEY"
+```

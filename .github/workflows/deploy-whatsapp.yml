@@ -80,6 +80,8 @@ jobs:
             set -e
             sudo pm2 stop ${{ env.APP_NAME }} || true
             sudo pm2 delete ${{ env.APP_NAME }} || true
+            sudo pkill -f chromium || true
+            sudo pkill -f "chrome.*whatsapp-web" || true
             sudo rm -rf ${{ env.APP_DIR }}/dist
 
       # ── Copy built files to EC2 ──

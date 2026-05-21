@@ -13,6 +13,9 @@ const inProgressBuffer = fs.readFileSync(
 const disconnectedBuffer = fs.readFileSync(
   path.join(__dirname, '..', 'qr-dis-connected.png'),
 );
+const connectedBuffer = fs.readFileSync(
+  path.join(__dirname, '..', 'qr-connected.png'),
+);
 
 @Controller('whatsapp')
 export class WhatsAppController {
@@ -107,7 +110,7 @@ export class WhatsAppController {
           qrStatus = 'in-progress';
         }
       } else if (status === ConnectionStatus.CONNECTED) {
-        buffer = disconnectedBuffer;
+        buffer = connectedBuffer;
         qrStatus = 'connected';
       }
     } catch (e) {

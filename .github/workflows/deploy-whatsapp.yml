@@ -77,14 +77,14 @@ jobs:
           username: ${{ env.EC2_USER }}
           key: ${{ secrets.EC2_PRIVATE_KEY }}
           script: |
-            set -e
-            sudo pm2 stop ${{ env.APP_NAME }} || true
-            sudo pm2 delete ${{ env.APP_NAME }} || true
-            sudo pkill -f chromium || true
-            sudo pkill -f "chrome.*whatsapp-web" || true
+            sudo pm2 stop ${{ env.APP_NAME }} 2>/dev/null || true
+            sudo pm2 delete ${{ env.APP_NAME }} 2>/dev/null || true
+            sudo pkill -f chromium 2>/dev/null || true
+            sudo pkill -f "chrome.*whatsapp-web" 2>/dev/null || true
             # Clean stale browser lock files
             find ${{ env.APP_DIR }}/.wwebjs_auth -name "SingletonLock" -delete 2>/dev/null || true
             sudo rm -rf ${{ env.APP_DIR }}/dist
+            echo "Clean complete"
 
       # ── Copy built files to EC2 ──
       - name: Copy dist

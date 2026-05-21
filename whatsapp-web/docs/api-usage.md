@@ -283,6 +283,91 @@ GET /messaging/history/:customerId?limit=20&offset=0
 
 ---
 
+## Dead-Letter Queue (DLQ) Endpoints
+
+Messages that fail all 3 retry attempts are moved to the DLQ. The service auto-retries DLQ jobs every 2 minutes, but you can also manage them manually.
+
+### List DLQ Jobs
+
+```
+GET /messaging/dlq
+```
+
+**Response:**
+
+```json
+{
+  "count": 2,
+  "jobs": [
+    {
+      "id": "1",
+      "data": {
+        "customerId": "cust_123",
+        "phone": "919876543210",
+        "message": "Your appointment is confirmed.",
+        "mediaUrl": null,
+        "failedAt": "2026-05-21T15:28:36.127Z",
+        "failureReason": "The browser is already running...",
+        "attempts": 3,
+        "originalJobId": "11"
+      },
+      "timestamp": 1779377316127
+    }
+  ]
+}
+```
+
+---
+
+### Retry All DLQ Jobs
+
+Moves all DLQ messages back to the main queue for another round of retries.
+
+```
+POST /messaging/dlq/retry-all
+```
+
+**Response:**
+
+```json
+{
+  "retried": 2,
+  "message": "2 message(s) moved back to main queue"
+}
+```
+
+---
+
+### Retry Specific DLQ Job
+
+```
+POST /messaging/dlq/retry/:jobId
+```
+
+**Response:**
+
+```json
+{
+  "retried": true,
+  "newJobId": "25",
+  "message": "Job moved back to main queue"
+}
+```
+
+---
+
+### Auto-Retry Behavior
+
+DLQ jobs are automatically retried every 2 minutes without manual intervention. The flow:
+
+```
+Message fails 3 attempts → DLQ → auto-retry after 2 min → 3 more attempts → ...
+```
+
+If the issue was temporary (browser wake-up, detached frame), it succeeds on the next round automatically.
+
+---
+
 ## Typical Integration Flow
 
 ```

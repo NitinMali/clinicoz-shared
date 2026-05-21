@@ -192,6 +192,23 @@ export class WhatsAppSessionService implements OnModuleInit, OnModuleDestroy {
     }
   }
 
+  /**
+   * Force-destroys the current client for a customer so it can be re-woken cleanly.
+   * Used when the browser is in a bad state (detached frame, etc.)
+   */
+  async forceReconnect(customerId: string): Promise<void> {
+    const client = this.clients.get(customerId);
+    if (client) {
+      this.logger.log(`Force reconnecting ${customerId}...`);
+      try { await client.destroy(); } catch (e) { /* ignore */ }
+      this.clients.delete(customerId);
+    }
+    this.clearIdleTimer(customerId);
+    await this.killOrphanedBrowser(customerId);
+    // Small delay to let Chromium fully exit
+    await new Promise((r) => setTimeout(r, 2000));
+  }
+
   private async killOrphanedBrowser(customerId: string): Promise<void> {
     const { execSync } = require('child_process');
     const sessionDir = path.join(process.cwd(), '.wwebjs_auth', `session-${customerId}`);

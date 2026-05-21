@@ -27,13 +27,31 @@ export class MessageProcessor extends WorkerHost {
     this.logger.log(`Processing message job ${job.id} for customer ${customerId} to ${phone}`);
 
     // ensureClientReady wakes up sleeping sessions if needed
-    const client = await this.sessionService.ensureClientReady(customerId);
+    let client = await this.sessionService.ensureClientReady(customerId);
 
-    if (mediaUrl) {
-      const media = await MessageMedia.fromUrl(mediaUrl);
-      await client.sendMessage(chatId, media, { caption: messageWithFooter });
-    } else {
-      await client.sendMessage(chatId, messageWithFooter);
+    try {
+      if (mediaUrl) {
+        const media = await MessageMedia.fromUrl(mediaUrl);
+        await client.sendMessage(chatId, media, { caption: messageWithFooter });
+      } else {
+        await client.sendMessage(chatId, messageWithFooter);
+      }
+    } catch (e) {
+      // If frame is detached, destroy and re-wake the client
+      if (e.message?.includes('detached Frame') || e.message?.includes('detached')) {
+        this.logger.warn(`Detached frame for ${customerId}, re-initializing...`);
+        await this.sessionService.forceReconnect(customerId);
+        client = await this.sessionService.ensureClientReady(customerId);
+
+        if (mediaUrl) {
+          const media = await MessageMedia.fromUrl(mediaUrl);
+          await client.sendMessage(chatId, media, { caption: messageWithFooter });
+        } else {
+          await client.sendMessage(chatId, messageWithFooter);
+        }
+      } else {
+        throw e;
+      }
     }
 
     this.logger.log(`Message job ${job.id} delivered successfully`);

@@ -6,6 +6,7 @@ import { MessageQueueService } from './message-queue.service';
 import { MessageProcessor } from './message.processor';
 import { MessageHistoryService } from './message-history.service';
 import { MessagingController } from './messaging.controller';
+import { DlqRetryService } from './dlq-retry.service';
 
 @Module({
   imports: [
@@ -14,6 +15,6 @@ import { MessagingController } from './messaging.controller';
     WhatsAppModule,
   ],
   controllers: [MessagingController],
-  providers: [MessageQueueService, MessageProcessor, MessageHistoryService],
+  providers: [MessageQueueService, MessageProcessor, MessageHistoryService, DlqRetryService],
 })
 export class MessagingModule {}

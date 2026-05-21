@@ -82,6 +82,8 @@ jobs:
             sudo pm2 delete ${{ env.APP_NAME }} || true
             sudo pkill -f chromium || true
             sudo pkill -f "chrome.*whatsapp-web" || true
+            # Clean stale browser lock files
+            find ${{ env.APP_DIR }}/.wwebjs_auth -name "SingletonLock" -delete 2>/dev/null || true
             sudo rm -rf ${{ env.APP_DIR }}/dist
 
       # ── Copy built files to EC2 ──
@@ -146,6 +148,6 @@ jobs:
             set -e
             cd ${{ env.APP_DIR }}
             sudo npm ci --omit=dev
-            sudo pm2 start ecosystem.config.js
+            sudo pm2 start ${{ env.APP_DIR }}/ecosystem.config.js
             sudo pm2 save
             echo "Deploy complete: $(date)"

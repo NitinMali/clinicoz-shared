@@ -20,7 +20,7 @@ export class MessageProcessor extends WorkerHost {
   }
 
   async process(job: Job<MessageJobPayload>): Promise<void> {
-    const { customerId, phone, message, mediaUrl } = job.data;
+    const { customerId, phone, message, mediaUrl, referenceId, callbackUrl } = job.data;
     const chatId = `${phone}@c.us`;
     const messageWithFooter = `${message}\n\n_Sent via Clinicoz_`;
 
@@ -65,6 +65,15 @@ export class MessageProcessor extends WorkerHost {
       status: 'delivered',
       jobId: job.id,
     });
+
+    // Notify caller of successful delivery
+    await this.sendCallback(callbackUrl, {
+      referenceId,
+      status: 'delivered',
+      jobId: job.id,
+      phone,
+      timestamp: new Date().toISOString(),
+    });
   }
 
   @OnWorkerEvent('failed')
@@ -74,7 +83,7 @@ export class MessageProcessor extends WorkerHost {
     );
 
     if (job.attemptsMade >= job.opts.attempts) {
-      const { customerId, phone, message, mediaUrl } = job.data;
+      const { customerId, phone, message, mediaUrl, referenceId, callbackUrl } = job.data;
 
       this.logger.error(
         `Message job ${job.id} exhausted all retries. Moving to DLQ.`,
@@ -85,6 +94,8 @@ export class MessageProcessor extends WorkerHost {
         phone,
         message,
         mediaUrl,
+        referenceId,
+        callbackUrl,
         failedAt: new Date().toISOString(),
         failureReason: error.message,
         attempts: job.attemptsMade,
@@ -100,6 +111,32 @@ export class MessageProcessor extends WorkerHost {
         status: 'failed',
         jobId: job.id,
       });
+
+      // Notify caller of permanent failure
+      await this.sendCallback(callbackUrl, {
+        referenceId,
+        status: 'failed',
+        jobId: job.id,
+        phone,
+        failureReason: error.message,
+        attempts: job.attemptsMade,
+        timestamp: new Date().toISOString(),
+      });
+    }
+  }
+
+  private async sendCallback(callbackUrl: string | undefined, payload: Record<string, any>): Promise<void> {
+    if (!callbackUrl) return;
+
+    try {
+      const res = await fetch(callbackUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      this.logger.log(`Callback sent to ${callbackUrl}: ${res.status}`);
+    } catch (e) {
+      this.logger.warn(`Callback failed for ${callbackUrl}: ${e.message}`);
     }
   }
 }

@@ -19,6 +19,8 @@ export interface MessageJobPayload {
   phone: string;
   message: string;
   mediaUrl?: string;
+  referenceId?: string;
+  callbackUrl?: string;
 }
 
 export interface StatusResponse {

@@ -25,6 +25,8 @@ export class MessageQueueService {
       phone: dto.phone,
       message: dto.message,
       mediaUrl: dto.mediaUrl,
+      referenceId: dto.referenceId,
+      callbackUrl: dto.callbackUrl,
     }, {
       attempts: 3,
       backoff: { type: 'exponential', delay: 5000 },

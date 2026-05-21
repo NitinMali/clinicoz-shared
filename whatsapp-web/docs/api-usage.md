@@ -313,6 +313,49 @@ Backend MS                          WhatsApp MS
 
 ---
 
+## Frontend Integration — QR Polling Pattern
+
+The `/qr/image` endpoint is public and returns different images based on state. It also returns an `X-QR-Status` header so you can detect state changes in a single request.
+
+### Polling with `X-QR-Status` header
+
+```javascript
+const customerId = 'cust_123';
+const baseUrl = 'http://host';
+
+const poll = setInterval(async () => {
+  const res = await fetch(`${baseUrl}/whatsapp/connect/${customerId}/qr/image?t=${Date.now()}`);
+  const status = res.headers.get('X-QR-Status');
+
+  // Update image
+  const blob = await res.blob();
+  document.getElementById('qr').src = URL.createObjectURL(blob);
+
+  if (status === 'connected') {
+    clearInterval(poll);
+    // Show connected UI, hide QR section, etc.
+  }
+}, 5000);
+```
+
+### Image states returned by `/qr/image`
+
+| State | Image shown | `X-QR-Status` header |
+|---|---|---|
+| Chromium still launching | `qr-in-progress.png` | `in-progress` |
+| QR ready to scan | Actual QR code | `ready` |
+| User scanned, session active | `qr-connected.png` | `connected` |
+| No session / disconnected | `qr-dis-connected.png` | `disconnected` |
+
+### Recommended polling intervals
+
+| What | Interval | Why |
+|---|---|---|
+| QR image refresh | 5s | WhatsApp rotates QR every ~20s, 5s keeps it fresh |
+| Stop polling after | 2 min | If no scan in 2 min, QR expires anyway |
+
+---
+
 ## Error Responses
 
 All errors follow a consistent format:

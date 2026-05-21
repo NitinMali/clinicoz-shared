@@ -51,6 +51,7 @@ export class WhatsAppSessionService implements OnModuleInit, OnModuleDestroy {
     this.logger.log(
       `Session idle timeout: ${this.idleTimeoutMs / 1000}s`,
     );
+    await this.cleanupStaleLockFiles();
     await this.restoreAllSessions();
   }
 
@@ -60,6 +61,52 @@ export class WhatsAppSessionService implements OnModuleInit, OnModuleDestroy {
       clearTimeout(timer);
     }
     this.idleTimers.clear();
+  }
+
+  /**
+   * On startup, remove any stale SingletonLock files left behind by
+   * Chromium processes that were killed during deploy/restart.
+   * Without this, wakeUpClient fails with "browser is already running".
+   */
+  private async cleanupStaleLockFiles(): Promise<void> {
+    const authDir = path.join(process.cwd(), '.wwebjs_auth');
+    if (!fs.existsSync(authDir)) return;
+
+    const sessionDirs = fs.readdirSync(authDir).filter(d => d.startsWith('session-'));
+    let cleaned = 0;
+
+    for (const dir of sessionDirs) {
+      const lockFile = path.join(authDir, dir, 'SingletonLock');
+      if (fs.existsSync(lockFile)) {
+        try {
+          // Check if the PID in the lock is still alive
+          const linkTarget = fs.readlinkSync(lockFile);
+          const pid = linkTarget.split('-').pop();
+          let processAlive = false;
+
+          if (pid && /^\d+$/.test(pid)) {
+            try {
+              process.kill(Number(pid), 0); // signal 0 = check if alive
+              processAlive = true;
+            } catch (e) {
+              // Process doesn't exist — lock is stale
+            }
+          }
+
+          if (!processAlive) {
+            fs.unlinkSync(lockFile);
+            cleaned++;
+          }
+        } catch (e) {
+          // If readlinkSync fails, just remove the lock
+          try { fs.unlinkSync(lockFile); cleaned++; } catch (e2) { /* ignore */ }
+        }
+      }
+    }
+
+    if (cleaned > 0) {
+      this.logger.log(`Cleaned ${cleaned} stale SingletonLock file(s) on startup`);
+    }
   }
 
   // ── Idle timeout management ──
@@ -149,12 +196,22 @@ export class WhatsAppSessionService implements OnModuleInit, OnModuleDestroy {
     const { execSync } = require('child_process');
     const sessionDir = path.join(process.cwd(), '.wwebjs_auth', `session-${customerId}`);
     try {
-      // Find and kill any Chromium process using this session's data dir
-      execSync(`pkill -f "${sessionDir}" || true`, { stdio: 'pipe' });
-      // Remove the SingletonLock file if it exists
+      // Try to kill by matching the session directory in process args
+      execSync(`pkill -f "session-${customerId}" || true`, { stdio: 'pipe' });
+
+      // Also try killing via the SingletonLock file (contains PID on Linux)
       const lockFile = path.join(sessionDir, 'SingletonLock');
       if (fs.existsSync(lockFile)) {
-        fs.unlinkSync(lockFile);
+        try {
+          const lockContent = fs.readlinkSync(lockFile);
+          // SingletonLock is a symlink like "hostname-PID"
+          const pid = lockContent.split('-').pop();
+          if (pid && /^\d+$/.test(pid)) {
+            execSync(`kill -9 ${pid} || true`, { stdio: 'pipe' });
+            this.logger.log(`Killed orphaned Chromium PID ${pid} for ${customerId}`);
+          }
+        } catch (e) { /* not a symlink or can't read */ }
+        try { fs.unlinkSync(lockFile); } catch (e) { /* ignore */ }
       }
     } catch (e) {
       this.logger.warn(`Could not clean orphaned browser for ${customerId}: ${e.message}`);

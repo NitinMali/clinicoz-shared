@@ -333,10 +333,16 @@ redis-cli HGETALL bull:whatsapp-messages-dlq:<jobId>
 
 **"The browser is already running" error in DLQ:**
 
-An orphaned Chromium process is holding the session lock. Fix:
+A stale `SingletonLock` file is blocking Chromium from launching. The app handles this automatically on startup (cleans stale locks), but if it happens:
 
 ```bash
+# Remove all stale lock files
+sudo find /home/ubuntu/whatsapp-web/.wwebjs_auth -name "SingletonLock" -delete
+
+# Kill any orphaned Chromium
 sudo pkill -f chromium || true
+
+# Restart
 sudo pm2 restart whatsapp-microservice
 ```
 
@@ -354,10 +360,10 @@ ps aux | grep chromium
 ls -la /home/ubuntu/whatsapp-web/.wwebjs_auth/session-<customerId>/SingletonLock
 ```
 
-If the lock file exists but no Chromium process is running, remove it:
+If the lock file exists but no Chromium process is running (stale lock), remove it:
 
 ```bash
-rm /home/ubuntu/whatsapp-web/.wwebjs_auth/session-<customerId>/SingletonLock
+sudo rm -f /home/ubuntu/whatsapp-web/.wwebjs_auth/session-<customerId>/SingletonLock
 ```
 
 **QR image stuck on "in-progress":**
@@ -375,6 +381,26 @@ sudo pm2 logs whatsapp-microservice --lines 20
 **After deploy, first message fails:**
 
 Expected — the old Chromium process was killed during deploy. The customer needs to reconnect (POST `/connect` + scan QR) or the next retry will succeed once the browser wakes up.
+
+### Cleanup Commands
+
+```bash
+# Clear all DLQ entries
+redis-cli KEYS "bull:whatsapp-messages-dlq:*" | xargs redis-cli DEL
+
+# Clear message history for a customer
+redis-cli DEL whatsapp:history:<customerId>
+
+# Remove all stale lock files
+sudo find /home/ubuntu/whatsapp-web/.wwebjs_auth -name "SingletonLock" -delete
+
+# Full reset before fresh deploy
+sudo pm2 stop whatsapp-microservice || true
+sudo pm2 delete whatsapp-microservice || true
+sudo pkill -f chromium || true
+sudo find /home/ubuntu/whatsapp-web/.wwebjs_auth -name "SingletonLock" -delete
+redis-cli KEYS "bull:whatsapp-messages-dlq:*" | xargs redis-cli DEL
+```
 
 ### Health Check
 

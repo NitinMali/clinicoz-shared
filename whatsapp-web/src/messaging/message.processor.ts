@@ -22,6 +22,7 @@ export class MessageProcessor extends WorkerHost {
   async process(job: Job<MessageJobPayload>): Promise<void> {
     const { customerId, phone, message, mediaUrl } = job.data;
     const chatId = `${phone}@c.us`;
+    const messageWithFooter = `${message}\n\n_Sent via Clinicoz_`;
 
     this.logger.log(`Processing message job ${job.id} for customer ${customerId} to ${phone}`);
 
@@ -30,9 +31,9 @@ export class MessageProcessor extends WorkerHost {
 
     if (mediaUrl) {
       const media = await MessageMedia.fromUrl(mediaUrl);
-      await client.sendMessage(chatId, media, { caption: message });
+      await client.sendMessage(chatId, media, { caption: messageWithFooter });
     } else {
-      await client.sendMessage(chatId, message);
+      await client.sendMessage(chatId, messageWithFooter);
     }
 
     this.logger.log(`Message job ${job.id} delivered successfully`);

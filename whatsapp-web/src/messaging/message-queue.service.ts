@@ -29,7 +29,7 @@ export class MessageQueueService {
       callbackUrl: dto.callbackUrl,
     }, {
       attempts: 3,
-      backoff: { type: 'exponential', delay: 5000 },
+      backoff: { type: 'exponential', delay: 15000 },
       removeOnComplete: true,
       removeOnFail: false,
     });

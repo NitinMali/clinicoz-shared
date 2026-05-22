@@ -183,11 +183,28 @@ On failure:
 ```typescript
 {
   attempts: 3,
-  backoff: { type: 'exponential', delay: 5000 },
+  backoff: { type: 'exponential', delay: 15000 },
   removeOnComplete: true,
   removeOnFail: false,
 }
 ```
+
+Retry schedule: 15s → 30s → 60s (exponential). Total worst case before DLQ: ~1 min 45s.
+
+### Dead-Letter Queue (DLQ)
+
+Messages that exhaust all 3 retries are moved to the DLQ. A background service auto-retries DLQ jobs every 2 minutes, giving them another round of 3 attempts. This handles transient issues (browser wake-up, detached frames) without manual intervention.
+
+### Delivery Callback
+
+When sending a message, the caller can provide `referenceId` and `callbackUrl`. The service will POST to the callback URL on both successful delivery and permanent failure:
+
+- On success: `{ referenceId, status: "delivered", jobId, phone, timestamp }`
+- On failure: `{ referenceId, status: "failed", jobId, phone, failureReason, attempts, timestamp }`
+
+### Message Footer
+
+All messages are appended with a footer: `_Sent via Clinicoz_` (rendered as italic in WhatsApp), separated by two blank lines from the original message.
 
 ---
 

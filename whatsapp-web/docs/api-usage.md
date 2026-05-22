@@ -224,7 +224,9 @@ POST /messaging/send
   "customerId": "cust_123",
   "phone": "919876543210",
   "message": "Your appointment is confirmed for tomorrow at 10 AM.",
-  "mediaUrl": "https://example.com/invoice.pdf"
+  "mediaUrl": "https://example.com/invoice.pdf",
+  "referenceId": "appt_456",
+  "callbackUrl": "http://backend-ms/webhooks/whatsapp-delivery"
 }
 ```
 
@@ -234,6 +236,8 @@ POST /messaging/send
 | `phone` | string | Yes | Recipient phone number (with country code, no +) |
 | `message` | string | Yes | Text message content |
 | `mediaUrl` | string | No | URL of media to attach (image, PDF, video) |
+| `referenceId` | string | No | Caller's ID for correlating delivery callbacks |
+| `callbackUrl` | string | No | URL to POST delivery status (success or failure) |
 
 **Response (202):**
 
@@ -244,7 +248,49 @@ POST /messaging/send
 }
 ```
 
-The message is processed asynchronously. If the customer's browser is sleeping, it will be woken up automatically (~5-10s delay).
+The message is processed asynchronously. If the customer's browser is sleeping, it will be woken up automatically (~5-15s delay).
+
+**Note:** A footer `_Sent via Clinicoz_` is automatically appended to every message.
+
+### Delivery Callbacks
+
+If `callbackUrl` is provided, the service will POST to it on delivery or permanent failure:
+
+**Success callback:**
+
+```json
+{
+  "referenceId": "appt_456",
+  "status": "delivered",
+  "jobId": "25",
+  "phone": "919876543210",
+  "timestamp": "2026-05-21T17:30:00.000Z"
+}
+```
+
+**Failure callback (after all retries exhausted):**
+
+```json
+{
+  "referenceId": "appt_456",
+  "status": "failed",
+  "jobId": "25",
+  "phone": "919876543210",
+  "failureReason": "Session disconnected",
+  "attempts": 3,
+  "timestamp": "2026-05-21T17:30:00.000Z"
+}
+```
+
+### Retry Behavior
+
+| Attempt | Delay after failure |
+|---|---|
+| 1st retry | 15 seconds |
+| 2nd retry | 30 seconds |
+| 3rd retry | 60 seconds |
+
+If all 3 attempts fail, the message moves to the DLQ and is auto-retried every 2 minutes.
 
 ---
 

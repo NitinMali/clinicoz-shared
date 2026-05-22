@@ -210,11 +210,14 @@ export class WhatsAppSessionService implements OnModuleInit, OnModuleDestroy {
   }
 
   private async killOrphanedBrowser(customerId: string): Promise<void> {
-    const { execSync } = require('child_process');
     const sessionDir = path.join(process.cwd(), '.wwebjs_auth', `session-${customerId}`);
     try {
+      const { execSync } = require('child_process');
+
       // Try to kill by matching the session directory in process args
-      execSync(`pkill -f "session-${customerId}" || true`, { stdio: 'pipe' });
+      try {
+        execSync(`pkill -f "session-${customerId}"`, { stdio: 'pipe' });
+      } catch (e) { /* no matching process — that's fine */ }
 
       // Also try killing via the SingletonLock file (contains PID on Linux)
       const lockFile = path.join(sessionDir, 'SingletonLock');
@@ -224,8 +227,10 @@ export class WhatsAppSessionService implements OnModuleInit, OnModuleDestroy {
           // SingletonLock is a symlink like "hostname-PID"
           const pid = lockContent.split('-').pop();
           if (pid && /^\d+$/.test(pid)) {
-            execSync(`kill -9 ${pid} || true`, { stdio: 'pipe' });
-            this.logger.log(`Killed orphaned Chromium PID ${pid} for ${customerId}`);
+            try {
+              execSync(`kill -9 ${pid}`, { stdio: 'pipe' });
+              this.logger.log(`Killed orphaned Chromium PID ${pid} for ${customerId}`);
+            } catch (e) { /* process already dead */ }
           }
         } catch (e) { /* not a symlink or can't read */ }
         try { fs.unlinkSync(lockFile); } catch (e) { /* ignore */ }
@@ -241,15 +246,22 @@ export class WhatsAppSessionService implements OnModuleInit, OnModuleDestroy {
       puppeteer: PUPPETEER_OPTS,
     });
 
-    client.on('ready', async () => {
-      this.logger.log(`Session woken up for customer ${customerId}`);
-    });
+    // Wait for the ready event before returning the client
+    const readyPromise = new Promise<void>((resolve, reject) => {
+      const timeout = setTimeout(() => {
+        reject(new Error('Wake-up timed out after 30s'));
+      }, 30000);
 
-    client.on('auth_failure', async (msg) => {
-      this.logger.error(`Wake-up auth failure for ${customerId}: ${msg}`);
-      this.clients.delete(customerId);
-      this.clearIdleTimer(customerId);
-      await this.redis.set(REDIS_KEYS.STATUS(customerId), ConnectionStatus.DISCONNECTED);
+      client.on('ready', () => {
+        clearTimeout(timeout);
+        this.logger.log(`Session woken up for customer ${customerId}`);
+        resolve();
+      });
+
+      client.on('auth_failure', (msg) => {
+        clearTimeout(timeout);
+        reject(new Error(`Wake-up auth failure: ${msg}`));
+      });
     });
 
     client.on('disconnected', async (reason) => {
@@ -261,6 +273,16 @@ export class WhatsAppSessionService implements OnModuleInit, OnModuleDestroy {
 
     await client.initialize();
     this.clients.set(customerId, client);
+
+    try {
+      await readyPromise;
+    } catch (e) {
+      // Clean up if ready never fired
+      try { await client.destroy(); } catch (err) { /* ignore */ }
+      this.clients.delete(customerId);
+      throw e;
+    }
+
     return client;
   }
 

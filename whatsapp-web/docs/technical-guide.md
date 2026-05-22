@@ -260,7 +260,7 @@ All messages are appended with a footer: `_Sent via Clinicoz_` (rendered as ital
 | `PORT` | No | 3001 | Server port |
 | `REDIS_URL` | Yes | — | Redis connection URI |
 | `API_KEY` | Yes | — | Min 16 characters, used for x-api-key auth |
-| `SESSION_IDLE_TIMEOUT_MS` | No | 600000 | Idle timeout in ms. Set to 0 to disable. |
+| `SESSION_IDLE_TIMEOUT_MS` | No | 300000 | Idle timeout in ms. Set to 0 to disable. |
 
 ### PM2 Process Management
 

@@ -12,7 +12,7 @@ const envSchema = Joi.object({
     'string.min': 'API_KEY must be at least 16 characters',
     'string.empty': 'API_KEY is required',
   }),
-  SESSION_IDLE_TIMEOUT_MS: Joi.number().default(600000), // 10 minutes
+  SESSION_IDLE_TIMEOUT_MS: Joi.number().default(300000), // 10 minutes
 }).unknown(true);
 
 export function validate(config: Record<string, unknown>): Record<string, unknown> {

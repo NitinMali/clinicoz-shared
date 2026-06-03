@@ -14,8 +14,8 @@ on:
       - '.github/workflows/deploy-e2e.yml'
 
 env:
-  ECR_PUBLIC_REGISTRY: public.ecr.aws/clinicoz
-  IMAGE_NAME: e2e-testing
+  ECR_PUBLIC_REGISTRY: public.ecr.aws/v6d1k7c6
+  IMAGE_NAME: clinicoz/e2e-testing
   AWS_REGION: us-east-1  # ECR Public requires us-east-1 for auth
 
 jobs:

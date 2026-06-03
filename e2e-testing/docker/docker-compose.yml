@@ -8,7 +8,7 @@ services:
       - redis-data:/data
 
   app:
-    image: public.ecr.aws/clinicoz/e2e-testing:latest
+    image: public.ecr.aws/v6d1k7c6/clinicoz/e2e-testing:latest
     ports:
       - "3005:3005"
     env_file: .env

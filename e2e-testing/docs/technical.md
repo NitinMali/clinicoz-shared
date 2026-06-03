@@ -518,11 +518,25 @@ Assert element [data-testid="error-msg"] is not visible
 
 **Concept:** Group test cases and run them sequentially as a suite with shared auth.
 
-### Screenshot on Failure
+### Screenshot on Failure ✅ IMPLEMENTED
 
-**Concept:** Capture a screenshot when a step fails, store it, and show in the Details modal.
+Captures a full-page screenshot when a step fails and displays it in the Details modal.
 
-**Implementation:** In `executeStep()` catch block, call `page.screenshot()` and save to `data/screenshots/`.
+**How it works:**
+1. In `automation.service.ts` → `executeStep()` catch block
+2. Calls `page.screenshot({ path, fullPage: true })` 
+3. Saves to `data/screenshots/step-{index}-{timestamp}.png`
+4. Filename stored in `StepResult.screenshot` field
+5. Served via `GET /api/screenshots/:filename` endpoint (execution.controller.ts)
+6. Dashboard modal renders `<img>` tag below the error message
+
+**Files involved:**
+- `src/automation/automation.service.ts` — capture logic in catch block
+- `src/execution/execution.controller.ts` — `GET /api/screenshots/:filename` endpoint
+- `src/test-cases/dto/test-case-response.dto.ts` — `screenshot?: string` field in StepResult
+- `public/index.html` — modal renders screenshot image
+
+**Storage:** `data/screenshots/` (persisted via Docker volume mount)
 
 ### Parallel Test Execution (Multi-browser)
 

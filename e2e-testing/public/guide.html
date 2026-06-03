@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Test Writing Guide — Clinicoz E2E</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #f5f7fa; color: #1a1a2e; line-height: 1.7; }
+    header { background: #1a1a2e; color: #fff; padding: 1rem 2rem; display: flex; align-items: center; justify-content: space-between; }
+    header h1 { font-size: 1.25rem; font-weight: 600; }
+    header a { color: #a5b4fc; text-decoration: none; font-size: 0.875rem; }
+    header a:hover { text-decoration: underline; }
+    main { max-width: 800px; margin: 2rem auto; padding: 0 1.5rem 4rem; }
+    h2 { font-size: 1.25rem; margin: 2.5rem 0 0.75rem; color: #1a1a2e; border-bottom: 2px solid #e2e8f0; padding-bottom: 0.5rem; }
+    h3 { font-size: 1rem; margin: 1.5rem 0 0.5rem; color: #334155; }
+    p { margin: 0.5rem 0; color: #475569; }
+    code { background: #e2e8f0; padding: 0.15rem 0.4rem; border-radius: 3px; font-size: 0.85rem; font-family: "Fira Code", monospace; }
+    pre { background: #1e293b; color: #e2e8f0; padding: 1rem; border-radius: 6px; overflow-x: auto; margin: 0.75rem 0; font-size: 0.8125rem; line-height: 1.8; }
+    table { width: 100%; border-collapse: collapse; margin: 1rem 0; font-size: 0.875rem; }
+    th, td { border: 1px solid #e2e8f0; padding: 0.5rem 0.75rem; text-align: left; }
+    th { background: #f1f5f9; font-weight: 600; }
+    .tip { background: #ecfdf5; border-left: 4px solid #10b981; padding: 0.75rem 1rem; margin: 1rem 0; border-radius: 0 6px 6px 0; font-size: 0.875rem; }
+    .warning { background: #fef3c7; border-left: 4px solid #f59e0b; padding: 0.75rem 1rem; margin: 1rem 0; border-radius: 0 6px 6px 0; font-size: 0.875rem; }
+    .nav { display: flex; flex-wrap: wrap; gap: 0.5rem; margin: 1.5rem 0; }
+    .nav a { background: #e2e8f0; padding: 0.35rem 0.75rem; border-radius: 4px; text-decoration: none; color: #334155; font-size: 0.8125rem; }
+    .nav a:hover { background: #cbd5e1; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Test Writing Guide</h1>
+    <a href="/">← Back to Dashboard</a>
+  </header>
+  <main>
+    <div class="nav">
+      <a href="#actions">Actions</a>
+      <a href="#selectors">Selectors</a>
+      <a href="#wait">Wait & Verify</a>
+      <a href="#utilities">Utilities</a>
+      <a href="#auth">Auth Settings</a>
+      <a href="#primereact">PrimeReact</a>
+      <a href="#examples">Examples</a>
+      <a href="#tips">Tips</a>
+    </div>
+
+    <h2 id="actions">Action Types</h2>
+    <p>Each instruction must start with an action verb. One action per line.</p>
+
+    <h3>Click</h3>
+    <pre>Click [data-testid="save-button"]
+Click button[type="submit"]
+Click #login-btn
+Click .btn-primary</pre>
+
+    <h3>Type / Fill</h3>
+    <p>Types text into an input. Text must be in quotes.</p>
+    <pre>Type "kaveri@test.com" in input#email
+Type "Pass@1234" in input[data-testid="password-input"]
+Type "Nitin Mali" in input[placeholder="Search by patient name"]</pre>
+
+    <h3>Clear</h3>
+    <pre>Clear input#govId
+Clear [data-testid="government-id-input"]</pre>
+
+    <h3>Select (PrimeReact Dropdown)</h3>
+    <p>Opens the dropdown and clicks the option. Works with PrimeReact <code>p-dropdown</code>.</p>
+    <pre>Select "Male" in #gender
+Select "Active" in [data-testid="status-dropdown"]
+Select "1" in select[data-testid="month-dropdown"]</pre>
+
+    <h2 id="selectors">Selector Formats</h2>
+    <p>Direct selectors bypass the AI — they're faster, free, and 100% reliable.</p>
+
+    <table>
+      <tr><th>Type</th><th>Format</th><th>Example</th></tr>
+      <tr><td>data-testid (best)</td><td><code>[data-testid="name"]</code></td><td><code>Click [data-testid="save-btn"]</code></td></tr>
+      <tr><td>ID</td><td><code>#id</code></td><td><code>Type "hello" in #email</code></td></tr>
+      <tr><td>Class</td><td><code>.class</code></td><td><code>Click .btn-primary</code></td></tr>
+      <tr><td>Tag + attribute</td><td><code>tag[attr="val"]</code></td><td><code>Click button[type="submit"]</code></td></tr>
+      <tr><td>Placeholder</td><td><code>input[placeholder="..."]</code></td><td><code>Type "text" in input[placeholder="Search"]</code></td></tr>
+    </table>
+
+    <div class="tip">
+      <strong>How to find selectors:</strong> Right-click an element in Chrome → Inspect → look for <code>data-testid</code>, <code>id</code>, <code>placeholder</code>, or <code>class</code> attributes.
+    </div>
+
+    <h2 id="wait">Wait & Verify (No AI needed)</h2>
+    <p>These instructions are handled directly — no AI call, no cost.</p>
+
+    <h3>Wait for navigation</h3>
+    <pre>Wait for page to redirect to /visits
+Wait for page to redirect to /patients/
+Wait for page to navigate to /dashboard</pre>
+
+    <h3>Wait for page load</h3>
+    <pre>Wait for page to load</pre>
+
+    <h3>Wait for sidebar/dialog</h3>
+    <pre>Wait for sidebar to appear
+Wait for dialog to open
+Wait for modal to appear</pre>
+
+    <h3>Wait for toast/notification</h3>
+    <pre>Wait for toast message to appear
+Wait for success message to appear</pre>
+
+    <h3>Wait fixed time</h3>
+    <pre>Wait 2 seconds
+Wait 5 seconds</pre>
+
+    <h3>Verify</h3>
+    <pre>Verify the page URL contains /visits</pre>
+
+    <h2 id="utilities">Dynamic Values (Utilities)</h2>
+    <p>Generate random data for test isolation.</p>
+
+    <table>
+      <tr><th>Instruction</th><th>Example Output</th></tr>
+      <tr><td><code>Type random name in ...</code></td><td>"Test David Kumar"</td></tr>
+      <tr><td><code>Type random mobile in ...</code></td><td>"0000012345"</td></tr>
+      <tr><td><code>Type random email in ...</code></td><td>"test.a8k3m2@test.com"</td></tr>
+      <tr><td><code>Type current date and time in ...</code></td><td>"5/24/2026, 10:30:00 PM"</td></tr>
+      <tr><td><code>Type current date in ...</code></td><td>"5/24/2026"</td></tr>
+      <tr><td><code>Type random number(1, 100) in ...</code></td><td>"42"</td></tr>
+    </table>
+
+    <p>Random names are always prefixed with "Test" for easy identification.</p>
+
+    <h2 id="auth">Auth Settings (Skip Login)</h2>
+    <p>Configure once in the Auth Settings section on the dashboard:</p>
+    <ol>
+      <li>Enter Login URL, Email, Password</li>
+      <li>Click "Save Auth"</li>
+      <li>Set your test's Target URL directly to the page you want to test</li>
+    </ol>
+
+    <div class="warning">
+      <strong>Don't mix!</strong> If Auth Settings are configured, don't include login steps in your instructions. The system auto-logs-in before navigating to the target URL.
+    </div>
+
+    <pre>Target URL: https://admin.clinicoz.com/cms/patients/.../profile
+
+1. Click [data-testid="edit-other-details"]
+2. Wait for sidebar to appear
+3. Clear [data-testid="gov-id-input"]
+4. Type current date and time in [data-testid="gov-id-input"]
+5. Click [data-testid="save-btn"]
+6. Wait for toast message to appear</pre>
+
+    <h2 id="primereact">PrimeReact Components</h2>
+
+    <table>
+      <tr><th>Component</th><th>How to interact</th></tr>
+      <tr><td>Input</td><td><code>Type "text" in [data-testid="..."]</code></td></tr>
+      <tr><td>Button</td><td><code>Click [data-testid="..."]</code></td></tr>
+      <tr><td>Dropdown</td><td><code>Select "Option" in [data-testid="..."]</code></td></tr>
+      <tr><td>Autocomplete</td><td>Type → Wait → Click <code>li.p-autocomplete-item</code></td></tr>
+      <tr><td>Sidebar</td><td><code>Wait for sidebar to appear</code></td></tr>
+      <tr><td>Dialog</td><td><code>Wait for dialog to appear</code></td></tr>
+      <tr><td>Toast</td><td><code>Wait for toast message to appear</code></td></tr>
+    </table>
+
+    <h2 id="examples">Complete Examples</h2>
+
+    <h3>Login Test (without Auth Settings)</h3>
+    <pre>Target URL: https://admin.clinicoz.com/cms/login
+
+1. Type "kaveri@test.com" in input#email
+2. Type "Pass@1234" in input#password
+3. Click button[type="submit"]
+4. Wait for page to redirect to /visits</pre>
+
+    <h3>Create Patient (with Auth Settings)</h3>
+    <pre>Target URL: https://admin.clinicoz.com/cms/visits
+
+1. Click on button[aria-label="Patient"]
+2. Wait for sidebar to appear
+3. Type random name in [data-testid="patient-firstname-input"]
+4. Type random mobile in [data-testid="patient-primarymobile-input"]
+5. Select "Male" in #gender
+6. Type "40" in [data-testid="patient-age-years-input"]
+7. Click on button[aria-label="Add"]
+8. Wait for toast message to appear</pre>
+
+    <h3>Edit Patient Profile (with Auth Settings)</h3>
+    <pre>Target URL: https://admin.clinicoz.com/cms/patients/77e96.../profile
+
+1. Click [data-testid="edit-other-details"]
+2. Wait for sidebar to appear
+3. Clear [data-testid="gov-id-input"]
+4. Type current date and time in [data-testid="gov-id-input"]
+5. Click [data-testid="save-btn"]
+6. Wait for toast message to appear</pre>
+
+    <h2 id="tips">Tips & Troubleshooting</h2>
+
+    <table>
+      <tr><th>Problem</th><th>Solution</th></tr>
+      <tr><td>AI can't find element</td><td>Use direct selector: <code>[data-testid="..."]</code></td></tr>
+      <tr><td>Timeout on selector</td><td>Check selector in browser DevTools (right-click → Inspect)</td></tr>
+      <tr><td>Fill instead of click</td><td>Make sure instruction starts with "Click" not "Type"</td></tr>
+      <tr><td>Navigation timeout</td><td>Use partial path like <code>/visits</code> not full URL</td></tr>
+      <tr><td>Stale cached selector</td><td>Click "Clear Cache" button in dashboard header</td></tr>
+      <tr><td>Double login</td><td>Use Auth Settings OR login steps, not both</td></tr>
+      <tr><td>Can't reach localhost from Docker</td><td>Use <code>http://host.docker.internal:PORT</code></td></tr>
+      <tr><td>Screenshot not showing</td><td>Click "Details" button on the failed test case</td></tr>
+    </table>
+
+    <div class="tip">
+      <strong>Best practice:</strong> Ask developers to add <code>data-testid</code> attributes to all interactive elements. This makes tests bulletproof — no AI guessing needed.
+    </div>
+  </main>
+</body>
+</html>

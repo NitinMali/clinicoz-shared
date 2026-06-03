@@ -427,6 +427,21 @@ Target URL: https://admin.clinicoz.com/cms/login
 
 ---
 
+## Screenshots on Failure
+
+When a test step fails, the system automatically captures a full-page screenshot showing what the browser saw at the moment of failure.
+
+**How to view:**
+1. Click the **Details** button on a failed test case
+2. In the modal, scroll to the failed step
+3. The screenshot appears below the error message
+
+Screenshots are stored in `data/screenshots/` and persist across restarts. They're served via the API at `GET /api/screenshots/:filename`.
+
+This is especially useful when running headless in Docker — you can't see the browser, but the screenshot shows exactly what happened.
+
+---
+
 ## Troubleshooting
 
 | Problem | Solution |

@@ -1,0 +1,7 @@
+{
+  "localStorage": {
+    "token": "YOUR_JWT_TOKEN_HERE",
+    "user": "{\"email\":\"kaveri@test.com\",\"name\":\"Kaveri\"}"
+  },
+  "cookies": []
+}

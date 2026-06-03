@@ -1,0 +1,177 @@
+[
+  {
+    "id": "56ab69e4-c5d5-49c7-be86-9a61d9e8c4d6",
+    "name": "Test Login",
+    "instructions": "1. Type \"kaveri@test.com\" in input#email\n2. Type \"Pass@1234\" in input#password\n3. Click button[type=\"submit\"]\n4. Wait for page to load",
+    "targetUrl": "https://admin.clinicoz.com/cms/login",
+    "status": "failed",
+    "createdAt": "2026-05-23T20:17:39.804Z",
+    "updatedAt": "2026-06-02T18:34:31.396Z",
+    "lastRunResult": {
+      "status": "failed",
+      "steps": [
+        {
+          "index": 0,
+          "instruction": "1. Type \"kaveri@test.com\" in input#email",
+          "status": "failed",
+          "selector": "input#email",
+          "cacheHit": false,
+          "duration": 30360,
+          "error": "Operation timed out after 30000ms",
+          "screenshot": "step-0-1780425270829.png"
+        }
+      ],
+      "duration": 37492,
+      "error": "Operation timed out after 30000ms"
+    },
+    "lastRunAt": "2026-06-02T18:34:31.396Z"
+  },
+  {
+    "id": "8ba50bd8-2a64-4558-832b-3e73dbc9a248",
+    "name": "Load patient profile",
+    "instructions": "1. Click on input[placeholder=\"Search by patient name, mobile number or ID\"]\n2. Type \"Nitin Mali\" in input[placeholder=\"Search by patient name, mobile number or ID\"]\n3. Wait for page to load\n4. Click on the first li element with class \"p-autocomplete-item\"\n5. Wait for page to load",
+    "targetUrl": "https://admin.clinicoz.com/cms/visits",
+    "status": "passed",
+    "createdAt": "2026-05-23T20:41:00.217Z",
+    "updatedAt": "2026-06-02T18:35:40.433Z",
+    "lastRunResult": {
+      "status": "passed",
+      "steps": [
+        {
+          "index": 0,
+          "instruction": "1. Click on input[placeholder=\"Search by patient name, mobile number or ID\"]",
+          "status": "passed",
+          "selector": "input[placeholder=\"Search by patient name, mobile number or ID\"]",
+          "cacheHit": false,
+          "duration": 2088
+        },
+        {
+          "index": 1,
+          "instruction": "2. Type \"Nitin Mali\" in input[placeholder=\"Search by patient name, mobile number or ID\"]",
+          "status": "passed",
+          "selector": "input[placeholder=\"Search by patient name, mobile number or ID\"]",
+          "cacheHit": false,
+          "duration": 538
+        },
+        {
+          "index": 2,
+          "instruction": "3. Wait for page to load",
+          "status": "passed",
+          "cacheHit": false,
+          "duration": 1004
+        },
+        {
+          "index": 3,
+          "instruction": "4. Click on the first li element with class \"p-autocomplete-item\"",
+          "status": "passed",
+          "selector": "li.p-autocomplete-item",
+          "cacheHit": true,
+          "duration": 566
+        },
+        {
+          "index": 4,
+          "instruction": "5. Wait for page to load",
+          "status": "passed",
+          "cacheHit": false,
+          "duration": 1004
+        }
+      ],
+      "duration": 12293
+    },
+    "lastRunAt": "2026-06-02T18:35:40.433Z"
+  },
+  {
+    "id": "47c155db-05d0-4ddf-909c-80aae4fbc573",
+    "name": "Add patient",
+    "instructions": "1. Click on button[aria-label=\"Patient\"]\n2. Wait for sidebar to load\n3. Type random name in input[data-testid=\"patient-firstname-input\"]\n4. Type random mobile in input[data-testid=\"patient-primarymobile-input\"]\n5. Select \"Male\" in #gender\n6. Type \"40\" in input[data-testid=\"patient-age-years-input\"]\n7. Select \"1\" in [data-testid=\"patient-age-month-dropdown\"]\n8. Select \"1\" in [data-testid=\"patient-age-day-dropdown\"]\n7. Click on button[aria-label=\"Add\"]\n8. Wait for green toaster",
+    "targetUrl": "https://admin.clinicoz.com/cms/visits",
+    "status": "passed",
+    "createdAt": "2026-05-24T13:42:17.181Z",
+    "updatedAt": "2026-05-29T17:57:43.802Z",
+    "lastRunResult": {
+      "status": "passed",
+      "steps": [
+        {
+          "index": 0,
+          "instruction": "1. Click on button[aria-label=\"Patient\"]",
+          "status": "passed",
+          "selector": "button[aria-label=\"Patient\"]",
+          "cacheHit": false,
+          "duration": 1924
+        },
+        {
+          "index": 1,
+          "instruction": "2. Wait for sidebar to load",
+          "status": "passed",
+          "cacheHit": false,
+          "duration": 44
+        },
+        {
+          "index": 2,
+          "instruction": "3. Type random name in input[data-testid=\"patient-firstname-input\"]",
+          "status": "passed",
+          "selector": "input[data-testid=\"patient-firstname-input\"]",
+          "cacheHit": false,
+          "duration": 555
+        },
+        {
+          "index": 3,
+          "instruction": "4. Type random mobile in input[data-testid=\"patient-primarymobile-input\"]",
+          "status": "passed",
+          "selector": "input[data-testid=\"patient-primarymobile-input\"]",
+          "cacheHit": false,
+          "duration": 551
+        },
+        {
+          "index": 4,
+          "instruction": "5. Select \"Male\" in #gender",
+          "status": "passed",
+          "selector": "#gender",
+          "cacheHit": false,
+          "duration": 1229
+        },
+        {
+          "index": 5,
+          "instruction": "6. Type \"40\" in input[data-testid=\"patient-age-years-input\"]",
+          "status": "passed",
+          "selector": "input[data-testid=\"patient-age-years-input\"]",
+          "cacheHit": false,
+          "duration": 585
+        },
+        {
+          "index": 6,
+          "instruction": "7. Select \"1\" in [data-testid=\"patient-age-month-dropdown\"]",
+          "status": "passed",
+          "selector": "[data-testid=\"patient-age-month-dropdown\"]",
+          "cacheHit": false,
+          "duration": 1265
+        },
+        {
+          "index": 7,
+          "instruction": "8. Select \"1\" in [data-testid=\"patient-age-day-dropdown\"]",
+          "status": "passed",
+          "selector": "[data-testid=\"patient-age-day-dropdown\"]",
+          "cacheHit": false,
+          "duration": 1242
+        },
+        {
+          "index": 8,
+          "instruction": "7. Click on button[aria-label=\"Add\"]",
+          "status": "passed",
+          "selector": "button[aria-label=\"Add\"]",
+          "cacheHit": false,
+          "duration": 606
+        },
+        {
+          "index": 9,
+          "instruction": "8. Wait for green toaster",
+          "status": "passed",
+          "cacheHit": false,
+          "duration": 12040
+        }
+      ],
+      "duration": 27014
+    },
+    "lastRunAt": "2026-05-29T17:57:43.802Z"
+  }
+]

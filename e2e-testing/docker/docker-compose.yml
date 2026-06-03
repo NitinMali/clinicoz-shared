@@ -1,0 +1,27 @@
+version: "3.8"
+
+services:
+  redis:
+    image: redis:7-alpine
+    # No port exposed to host — only accessible within the Docker network
+    volumes:
+      - redis-data:/data
+
+  app:
+    image: public.ecr.aws/clinicoz/e2e-testing:latest
+    ports:
+      - "3005:3005"
+    env_file: .env
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - ./data:/app/data
+      - ./cache:/app/cache
+    depends_on:
+      - redis
+    environment:
+      - REDIS_HOST=redis
+      - NODE_ENV=production
+
+volumes:
+  redis-data:

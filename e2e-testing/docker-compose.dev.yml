@@ -1,0 +1,25 @@
+version: "3.8"
+
+# Developer local setup: builds from source code
+# Usage: docker compose -f docker-compose.dev.yml up --build
+
+services:
+  redis:
+    image: redis:7-alpine
+    # No port exposed to host — only app container accesses it
+
+  app:
+    build: .
+    ports:
+      - "3005:3005"
+    env_file: .env
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - ./data:/app/data
+      - ./cache:/app/cache
+    depends_on:
+      - redis
+    environment:
+      - REDIS_HOST=redis
+      - NODE_ENV=production

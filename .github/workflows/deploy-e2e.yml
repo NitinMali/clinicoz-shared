@@ -1,0 +1,58 @@
+name: Deploy E2E Testing Engine
+
+# ─── Required GitHub Secrets ─────────────────────────────────────────────────
+# AWS_ACCESS_KEY_ID      - AWS access key (for ECR Public push)
+# AWS_SECRET_ACCESS_KEY  - AWS secret key (for ECR Public push)
+# ──────────────────────────────────────────────────────────────────────────────
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'e2e-testing/**'
+      - '.github/workflows/deploy-e2e.yml'
+
+env:
+  ECR_PUBLIC_REGISTRY: public.ecr.aws/clinicoz
+  IMAGE_NAME: e2e-testing
+  AWS_REGION: us-east-1  # ECR Public requires us-east-1 for auth
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: e2e-testing
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to ECR Public
+        run: |
+          aws ecr-public get-login-password --region us-east-1 | docker login --username AWS --password-stdin public.ecr.aws
+
+      - name: Build Docker image
+        run: |
+          docker build -t ${{ env.IMAGE_NAME }} .
+
+      - name: Tag and push image
+        run: |
+          docker tag ${{ env.IMAGE_NAME }}:latest ${{ env.ECR_PUBLIC_REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+          docker tag ${{ env.IMAGE_NAME }}:latest ${{ env.ECR_PUBLIC_REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
+          docker push ${{ env.ECR_PUBLIC_REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+          docker push ${{ env.ECR_PUBLIC_REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
+
+      - name: Summary
+        run: |
+          echo "### ✅ E2E Testing Image Pushed" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Image: \`${{ env.ECR_PUBLIC_REGISTRY }}/${{ env.IMAGE_NAME }}:latest\`" >> $GITHUB_STEP_SUMMARY
+          echo "SHA: \`${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY

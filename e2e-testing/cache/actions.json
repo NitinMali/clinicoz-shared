@@ -1,0 +1,57 @@
+{
+  "entries": {
+    "20fb666604a7ec27f9fa28970f0d393603ae8d937148d8562237df2929b2174f": {
+      "selector": "#email",
+      "selectorType": "css",
+      "instructionText": "1. Type \"kaveri@test.com\" in input with ID \"email\"",
+      "pageUrl": "https://admin.clinicoz.com/cms/login",
+      "lastUsed": 1779630343540,
+      "createdAt": 1779628967560
+    },
+    "596b02daaa16efbaf12a352886bb640eeed7641ee973cacad2431a512e7a3092": {
+      "selector": "#password",
+      "selectorType": "css",
+      "instructionText": "2. Type \"Pass@1234\" in input with ID \"password\"",
+      "pageUrl": "https://admin.clinicoz.com/cms/login",
+      "lastUsed": 1779630344454,
+      "createdAt": 1779628969270
+    },
+    "f07d2d68a9ebdecc5299eaef321c0836e8fdf30286c0b9eb279855982f4434b7": {
+      "selector": "button[type='submit']",
+      "selectorType": "css",
+      "instructionText": "3. Click submit button",
+      "pageUrl": "https://admin.clinicoz.com/cms/login",
+      "lastUsed": 1779630345010,
+      "createdAt": 1779628974899
+    },
+    "3b2fda8df441393856578a1bb1474c5e81b0a4c6d40c01896e9cf3cec3883c7a": {
+      "selector": "li.p-autocomplete-item",
+      "selectorType": "css",
+      "instructionText": "8. Click on the first li element with class \"p-autocomplete-item\"",
+      "pageUrl": "https://admin.clinicoz.com/cms/login",
+      "lastUsed": 1779629054522,
+      "createdAt": 1779628981141
+    },
+    "462e9e187736dc53df7e4b9fb60256337166e6f9749c5bbc2643799a362685bf": {
+      "selector": "(//i[contains(@class,'pi-pencil')])[3]",
+      "selectorType": "css",
+      "instructionText": "10. Click on (//i[contains(@class,'pi-pencil')])[3]",
+      "pageUrl": "https://admin.clinicoz.com/cms/login",
+      "lastUsed": 1779628983992,
+      "createdAt": 1779628983992
+    },
+    "1870caa37115b8c236ffb4d6258b4e9215594950794856024f66a33a4186bcf1": {
+      "selector": "li.p-autocomplete-item",
+      "selectorType": "css",
+      "instructionText": "4. Click on the first li element with class \"p-autocomplete-item\"",
+      "pageUrl": "https://admin.clinicoz.com/cms/visits",
+      "lastUsed": 1780425338776,
+      "createdAt": 1779639091450
+    }
+  },
+  "metadata": {
+    "version": 1,
+    "maxEntries": 5000,
+    "entryCount": 6
+  }
+}
